@@ -48,3 +48,5 @@ option.LENS_VIGNETTE=Lens Vignetting
 option.CHROMATIC_ABERRATION=Chromatic Aberration
 option.SENSOR_NOISE=Low-Light Noise
 option.SENSOR_NOISE.comment=Grain like a camera's when the exposure rises in the dark.
+option.CIRRUS_CLOUDS=Cirrus (High Streaks)
+option.CIRRUS_AMOUNT=Cirrus Amount

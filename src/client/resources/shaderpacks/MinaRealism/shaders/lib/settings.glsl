@@ -22,6 +22,8 @@
 #define MOON_PHASE_BRIGHTNESS
 #define VOLUMETRIC_CLOUDS
 #define CLOUD_COVERAGE 0.45 // [0.2 0.3 0.4 0.45 0.5 0.6 0.7 0.8]
+#define CIRRUS_CLOUDS
+#define CIRRUS_AMOUNT 1.0 // [0.0 0.5 1.0 1.5 2.0]
 
 // Wind
 #define WAVING_PLANTS
@@ -52,34 +54,34 @@
 #if QUALITY == 0
 	const int SHADOW_SAMPLES = 6;
 	const int VL_STEPS = 6;
-	const int CLOUD_STEPS = 10;
-	const int CLOUD_LIGHT_STEPS = 2;
+	const int CLOUD_STEPS = 40;
+	const int CLOUD_LIGHT_STEPS = 3;
 	const int GI_RAYS = 1;
 	const int GI_STEPS = 8;
 	const float GI_DISTANCE = 3.0;
 	const int SSR_STEPS = 12;
 	const int DENOISE_RADIUS = 1;
-	const int CLOUD_SCATTER_OCTAVES = 1;
+	const int CLOUD_SCATTER_OCTAVES = 2;
 #elif QUALITY == 1
 	const int SHADOW_SAMPLES = 12;
 	const int VL_STEPS = 10;
-	const int CLOUD_STEPS = 18;
-	const int CLOUD_LIGHT_STEPS = 4;
+	const int CLOUD_STEPS = 64;
+	const int CLOUD_LIGHT_STEPS = 5;
 	const int GI_RAYS = 2;
 	const int GI_STEPS = 12;
 	const float GI_DISTANCE = 5.0;
 	const int SSR_STEPS = 24;
 	const int DENOISE_RADIUS = 2;
-	const int CLOUD_SCATTER_OCTAVES = 2;
+	const int CLOUD_SCATTER_OCTAVES = 3;
 #else
 	const int SHADOW_SAMPLES = 20;
 	const int VL_STEPS = 16;
-	const int CLOUD_STEPS = 28;
+	const int CLOUD_STEPS = 96;
 	const int CLOUD_LIGHT_STEPS = 6;
 	const int GI_RAYS = 4;
 	const int GI_STEPS = 16;
 	const float GI_DISTANCE = 8.0;
 	const int SSR_STEPS = 40;
 	const int DENOISE_RADIUS = 2;
-	const int CLOUD_SCATTER_OCTAVES = 3;
+	const int CLOUD_SCATTER_OCTAVES = 4;
 #endif

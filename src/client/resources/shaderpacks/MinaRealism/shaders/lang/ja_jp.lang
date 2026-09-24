@@ -48,3 +48,5 @@ option.LENS_VIGNETTE=周辺減光
 option.CHROMATIC_ABERRATION=色収差
 option.SENSOR_NOISE=暗所のノイズ
 option.SENSOR_NOISE.comment=暗い場所で露出が上がると、カメラのようにざらつきが出ます。
+option.CIRRUS_CLOUDS=巻雲（高い空のすじ雲）
+option.CIRRUS_AMOUNT=巻雲の量
