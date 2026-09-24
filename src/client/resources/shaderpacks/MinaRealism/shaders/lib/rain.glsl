@@ -35,10 +35,12 @@ vec3 lensRestingDrops(vec2 p, float scale, float seed, float density) {
 	vec2 id = floor(p);
 	vec2 f = fract(p) - 0.5;
 	vec4 h = hash43(vec3(id, seed));
-	if (h.x > density) return vec3(0.0);
+	// As the lens dries, density falls and drops shrink away one by one.
+	float dry = smoothstep(0.0, 0.08, density - h.x);
+	if (dry <= 0.0) return vec3(0.0);
 	float life = fract(frameTimeCounter * 0.04 + h.w);
 	float presence = smoothstep(0.0, 0.03, life) * (1.0 - smoothstep(0.6, 1.0, life));
-	float radius = mix(0.08, 0.3, h.z * h.z) * presence;
+	float radius = mix(0.08, 0.3, h.z * h.z) * presence * dry;
 	if (radius < 0.01) return vec3(0.0);
 	vec2 d = f - (h.xy - 0.5) * 0.6;
 	float r = length(d) / radius;
@@ -73,7 +75,8 @@ vec3 lensRunningDrops(vec2 p, float aspect, float density) {
 	float phase = frameTimeCounter * (0.04 + 0.06 * columnHash.y) + columnHash.z;
 	float cycle = floor(phase);
 	vec4 h = hash43(vec3(column, cycle, 2.9));
-	if (h.x > density) return vec3(0.0);
+	float dry = smoothstep(0.0, 0.1, density - h.x);
+	if (dry <= 0.0) return vec3(0.0);
 	float local = fract(phase);
 
 	float baseX = (column + 0.5 + (h.y - 0.5) * 0.5) * columnWidth;
@@ -117,7 +120,7 @@ vec3 lensRunningDrops(vec2 p, float aspect, float density) {
 	if (runT >= 1.0) dropDist = total;
 	float dropY = startY - dropDist / total * travel;
 
-	float fade = 1.0 - smoothstep(FADE, 1.0, local);
+	float fade = (1.0 - smoothstep(FADE, 1.0, local)) * dry;
 	// The drop fills up from rain landing on it before it breaks loose, and
 	// loses water to its trail on the way down.
 	float grow = smoothstep(0.0, GROW, local);
