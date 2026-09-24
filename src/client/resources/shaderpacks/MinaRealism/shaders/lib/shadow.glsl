@@ -26,7 +26,7 @@ vec3 shadowClipPos(vec3 playerPos) {
 uniform sampler2DShadow shadowtex0; // Everything, including water and glass.
 uniform sampler2DShadow shadowtex1; // Opaque casters only.
 uniform sampler2D shadowcolor0;     // Colour of the nearest translucent caster.
-uniform sampler2D shadowcolor1;     // Shadow-map depth of the water surface, 1 where there is none.
+uniform sampler2D shadowcolor1;     // Shadow-map depth of the water surface (r) and the nearest caster (g), 1 where there is none.
 
 vec2 vogelDisk(int index, int count, float rotation) {
 	float radius = sqrt((float(index) + 0.5) / float(count));
@@ -34,12 +34,44 @@ vec2 vogelDisk(int index, int count, float rotation) {
 	return radius * vec2(cos(theta), sin(theta));
 }
 
+// Blocks along the light per unit of shadow-map depth: undoes the [0,1]
+// mapping, the depth squeeze and the orthographic projection.
+float shadowDepthToBlocks() {
+	return 2.0 / SHADOW_DEPTH_SCALE / abs(shadowProjection[2][2]);
+}
+
 // Blocks of water the light crosses before reaching a shadow-map position.
 float waterPathLength(vec3 coord) {
 	float surface = texture(shadowcolor1, coord.xy).r;
 	if (surface >= coord.z) return 0.0;
-	// Undo the [0,1] mapping, the depth squeeze and the orthographic projection.
-	return (coord.z - surface) * 2.0 / SHADOW_DEPTH_SCALE / abs(shadowProjection[2][2]);
+	return (coord.z - surface) * shadowDepthToBlocks();
+}
+
+// The sun and the moon are discs about half a degree across, so a shadow is
+// sharp where it touches its caster and blurs with the gap between them.
+// Scaled up from the true 0.0046 per block for the haze and the swaying
+// leaves that soften real shadows further.
+const float PENUMBRA_PER_BLOCK = 0.012;
+
+// Radius of the penumbra at a shadow-map position, in shadow-map units.
+//   blocksToUV  shadow-map units per block at this position
+float penumbraRadius(vec3 coord, float blocksToUV, float rotation) {
+	float minimum = 1.0 / float(shadowMapResolution);
+	// Average depth of the casters around, within reach of the widest penumbra.
+	float searchRadius = 0.6 * blocksToUV;
+	float casterSum = 0.0;
+	float casters = 0.0;
+	for (int i = 0; i < 8; i++) {
+		float caster = texture(shadowcolor1, coord.xy + vogelDisk(i, 8, rotation) * searchRadius).g;
+		if (caster < coord.z - 1e-5) {
+			casterSum += caster;
+			casters += 1.0;
+		}
+	}
+	if (casters < 0.5) return minimum;
+	float gap = (coord.z - casterSum / casters) * shadowDepthToBlocks();
+	float radius = gap * PENUMBRA_PER_BLOCK * SHADOW_SOFTNESS * blocksToUV;
+	return clamp(radius, minimum, 24.0 / float(shadowMapResolution));
 }
 
 // Sunlight visibility, tinted where it passes through stained glass.
@@ -58,8 +90,10 @@ vec3 sampleShadow(vec3 playerPos, vec3 offsetDir, float dither, float fallback, 
 	waterDepth = waterPathLength(coord) * (1.0 - fade);
 	coord.z -= 0.00004;
 
-	float radius = SHADOW_SOFTNESS * 1.6 / float(shadowMapResolution);
 	float rotation = dither * 6.2831853;
+	// clipPos spans shadowDistance blocks per unit before the distortion
+	// magnifies it by 1 / distortion.
+	float radius = penumbraRadius(coord, 0.5 / (shadowDistance * distortion), rotation);
 	float opaque = 0.0;
 	for (int i = 0; i < SHADOW_SAMPLES; i++) {
 		opaque += texture(shadowtex1, vec3(coord.xy + vogelDisk(i, SHADOW_SAMPLES, rotation) * radius, coord.z));

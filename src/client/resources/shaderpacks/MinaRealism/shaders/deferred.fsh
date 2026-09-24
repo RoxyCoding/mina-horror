@@ -23,7 +23,9 @@ const int colortex5Format = R32F;
 const int colortex6Format = RGBA16F;
 const int colortex7Format = RGBA16F;
 const int colortex8Format = RGBA16F;
-const int shadowcolor1Format = R32F;
+const int colortex9Format = RGBA16F;
+const int colortex10Format = RGBA16F;
+const int shadowcolor1Format = RG32F;
 */
 const vec4 colortex0ClearColor = vec4(0.0, 0.0, 0.0, 1.0);
 const vec4 colortex1ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -31,6 +33,8 @@ const vec4 colortex6ClearColor = vec4(0.0, 0.0, 0.0, 1.0);
 const vec4 colortex7ClearColor = vec4(0.0, 0.0, 0.0, 1.0);
 const vec4 colortex8ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const bool colortex5Clear = false;
+const bool colortex9Clear = false; // deferred1 writes every pixel.
+const bool colortex10Clear = false; // TAA history, kept across frames.
 
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;

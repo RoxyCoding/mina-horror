@@ -39,17 +39,6 @@ vec3 emissiveRadiance(vec3 albedo) {
 	return albedo * mask * 4.0 * EMISSIVE_BRIGHTNESS; // Flames are far brighter than what they light.
 }
 
-// Rain soaks surfaces that face the open sky.
-// Tops soak fully, walls catch driven rain, undersides stay dry; puddles are
-// a film of water on top.
-float surfaceWetness(vec3 normal, float skyLight, int material, vec3 worldPos) {
-	if (material == MAT_FLAT || material == MAT_EMISSIVE) return 0.0;
-	float exposure = normal.y < -0.3 ? 0.0 : mix(0.4, 1.0, clamp(normal.y * 1.5, 0.0, 1.0));
-	float wet = wetness * smoothstep(0.85, 0.97, skyLight) * exposure;
-	if (material == MAT_DEFAULT) wet = max(wet, puddleAmount(worldPos, normal, skyLight));
-	return wet;
-}
-
 float surfaceRoughness(int material, float wet) {
 	float roughness = 0.8;
 	if (material == MAT_FOLIAGE) roughness = 0.45;

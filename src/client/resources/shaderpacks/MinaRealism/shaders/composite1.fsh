@@ -15,7 +15,10 @@ uniform sampler2D colortex2;
 uniform sampler2D colortex3;
 uniform sampler2D colortex4;
 uniform sampler2D colortex7;
+uniform sampler2D colortex9;
 uniform sampler2D depthtex0;
+uniform sampler2D depthtex1;
+uniform int biome_precipitation; // 0 none, 1 rain, 2 snow
 
 in vec2 texcoord;
 
@@ -88,6 +91,29 @@ vec4 filteredReflection(float centerZ) {
 	return vec4(sum.rgb / max(sum.a, 1e-4), sum.a / weightSum);
 }
 
+// Waves bend the view of what lies below the surface. The water was blended
+// over the opaque scene (kept in colortex9) with its own opacity, so the part
+// of the scene seen straight through is swapped for the part the waves bend
+// the view to.
+vec3 refractThroughWater(vec3 color, float surfaceDistance, vec3 normal, float opacity) {
+	float bottomDistance = linearDepth(texture(depthtex1, texcoord).r);
+	float waterDepth = clamp(bottomDistance - surfaceDistance, 0.0, 4.0);
+	// Light entering water at a slant is bent by about a quarter of the tilt
+	// (1 - 1/1.33) and shifts sideways in proportion to the depth it crosses.
+	vec3 tilt = mat3(gbufferModelView) * (normal - vec3(0.0, 1.0, 0.0));
+	vec2 shift = tilt.xy * waterDepth * 0.25;
+	vec2 offset = vec2(gbufferProjection[0][0], gbufferProjection[1][1]) * 0.5 * shift / max(bottomDistance, 0.5);
+	vec2 uv = texcoord + clamp(offset, -0.04, 0.04);
+	// Only water may be seen through water: anything the offset lands on that
+	// is not below this surface stays in place.
+	if (uv != clamp(uv, 0.0, 1.0)) return color;
+	if (decodeMaterial(texture(colortex3, uv).g) != MAT_WATER) return color;
+	if (linearDepth(texture(depthtex1, uv).r) < surfaceDistance) return color;
+	vec3 straight = texture(colortex9, texcoord).rgb;
+	vec3 bent = texture(colortex9, uv).rgb;
+	return max(color + (bent - straight) * (1.0 - opacity), 0.0);
+}
+
 // amount is 1 on water and glass and the puddle coverage on wet ground.
 vec3 applyReflection(vec3 color, vec3 viewPos, vec3 playerPos, int material, vec3 sunDir, vec3 normal, float amount) {
 	float skyLight = texture(colortex3, texcoord).b;
@@ -110,6 +136,21 @@ vec3 applyReflection(vec3 color, vec3 viewPos, vec3 playerPos, int material, vec
 	return mix(color, reflection, fresnel * amount) + sunGlint(normal, viewDir, f0, roughness, playerPos) * skyVisible * amount;
 }
 
+// Wet ground, bark and leaves are covered by a thin, uneven film of water.
+// It mirrors the sky, faintly face-on and strongly at a glancing view, but
+// blurred: the film follows every bump of the surface.
+vec3 applyWetSheen(vec3 color, vec3 playerPos, vec3 normal, float film, vec3 sunDir) {
+	float skyLight = texture(colortex3, texcoord).b;
+	vec3 viewDir = normalize(playerPos);
+	vec3 reflected = reflect(viewDir, normal);
+	reflected.y = abs(reflected.y);
+	float cosTheta = clamp(dot(-viewDir, normal), 0.0, 1.0);
+	// Schlick's Fresnel for water, capped where roughness scatters the glancing reflection.
+	float fresnel = 0.02 + 0.5 * pow(1.0 - cosTheta, 5.0);
+	vec3 reflection = reflectedSky(reflected, sunDir) * skyLight * skyLight;
+	return mix(color, reflection, fresnel * film);
+}
+
 void main() {
 	vec3 color = texture(colortex0, texcoord).rgb;
 	float depth = texture(depthtex0, texcoord).r;
@@ -124,9 +165,17 @@ void main() {
 	// The hand is flagged as prelit; it hides the surface behind it.
 	if (depth < 1.0 && isEyeInWater == 0 && !isPrelit(surface.g)) {
 		vec3 normal = decodeNormal(texture(colortex2, texcoord).xy);
+#ifdef WATER_REFRACTION
+		if (material == MAT_WATER) color = refractThroughWater(color, -viewPos.z, normal, surface.r);
+#endif
 		float amount = material == MAT_WATER || material == MAT_GLASS ? 1.0
 			: gbufferPuddle(texture(colortex1, texcoord), surface, playerPos + cameraPosition, normal);
-		if (amount > 0.0) color = applyReflection(color, viewPos, playerPos, material, sunDir, normal, amount);
+		if (amount > 0.0) {
+			color = applyReflection(color, viewPos, playerPos, material, sunDir, normal, amount);
+		} else if ((material == MAT_DEFAULT || material == MAT_FOLIAGE) && wetness > 0.001 && biome_precipitation != 2) {
+			float film = surfaceWetness(normal, surface.b, material, playerPos + cameraPosition);
+			if (film > 0.0) color = applyWetSheen(color, playerPos, normal, film, sunDir);
+		}
 	}
 
 	if (isEyeInWater == 1) {

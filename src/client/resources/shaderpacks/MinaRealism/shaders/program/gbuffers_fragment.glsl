@@ -32,6 +32,9 @@ in vec4 vertexColor;
 in vec3 viewPos;
 in vec3 viewNormal;
 flat in int blockId;
+#ifdef GB_CHUNK
+in vec4 tileRect;
+#endif
 
 layout(location = 0) out vec4 out0;
 #if defined GB_GBUFFER || defined GB_WATER
@@ -122,6 +125,48 @@ vec4 shadeWaterFromBelow(vec3 playerPos, vec3 normal) {
 }
 #endif
 
+#if defined GB_CHUNK && defined GB_GBUFFER
+// Relief read from the texture: brighter texels are taken as raised, up to
+// BUMP_DEPTH blocks. Gives stone, bark and soil a surface that catches light
+// at a slant instead of looking painted on.
+const float BUMP_DEPTH = 0.03 * BUMP_STRENGTH;
+
+float bumpHeight(vec2 uv, vec2 dx, vec2 dy) {
+	return luminance(textureGrad(gtexture, clamp(uv, tileRect.xy, tileRect.zw), dx, dy).rgb) * BUMP_DEPTH;
+}
+
+vec3 textureBumpNormal(vec3 normal, vec3 playerPos) {
+	vec2 dx = dFdx(texcoord);
+	vec2 dy = dFdy(texcoord);
+	vec3 dpx = dFdx(playerPos);
+	vec3 dpy = dFdy(playerPos);
+	// World-space gradients of the texture coordinates across the face.
+	vec3 dpyPerp = cross(dpy, normal);
+	vec3 dpxPerp = cross(normal, dpx);
+	float det = dot(dpx, dpyPerp);
+	if (abs(det) < 1e-12) return normal;
+	vec3 gradU = (dpyPerp * dx.x + dpxPerp * dy.x) / det;
+	vec3 gradV = (dpyPerp * dx.y + dpxPerp * dy.y) / det;
+
+	// Central differences over two texels up close and a pixel's footprint
+	// further away, read from a mip level blurrier than the colour: the grain
+	// of a texture is colour, only its larger shapes are relief. Distant
+	// relief averages out instead of shimmering.
+	vec2 atlas = vec2(textureSize(gtexture, 0));
+	vec2 delta = max(2.0 / atlas, vec2(max(abs(dx.x), abs(dy.x)), max(abs(dx.y), abs(dy.y))));
+	vec2 blurX = max(abs(dx), vec2(delta.x, 0.0)) * 2.0;
+	vec2 blurY = max(abs(dy), vec2(0.0, delta.y)) * 2.0;
+	float slopeU = (bumpHeight(texcoord + vec2(delta.x, 0.0), blurX, blurY) - bumpHeight(texcoord - vec2(delta.x, 0.0), blurX, blurY)) / (2.0 * delta.x);
+	float slopeV = (bumpHeight(texcoord + vec2(0.0, delta.y), blurX, blurY) - bumpHeight(texcoord - vec2(0.0, delta.y), blurX, blurY)) / (2.0 * delta.y);
+	vec3 gradient = slopeU * gradU + slopeV * gradV;
+	// Keep the relief shallow (under about 35 degrees) and let it fade out
+	// with distance, where a pixel covers many texels.
+	gradient /= max(1.0, length(gradient) / 0.7);
+	gradient *= 1.0 - smoothstep(24.0, 64.0, length(playerPos));
+	return normalize(normal - gradient);
+}
+#endif
+
 #ifdef GB_WEATHER
 uniform int biome_precipitation; // 0 none, 1 rain, 2 snow
 layout(location = 1) out vec4 out1; // colortex8: rain light (premultiplied) and coverage
@@ -192,6 +237,12 @@ void main() {
 	float footprint = max(length(dFdx(surfaceWorldPos)), length(dFdy(surfaceWorldPos)));
 #endif
 
+#if defined GB_CHUNK && defined GB_GBUFFER && defined TEXTURE_BUMPS
+	// Derivatives are taken here, outside the per-material branches.
+	vec3 bumpedNormal = textureBumpNormal(normal, viewToPlayer(viewPos));
+	if (!isFoliageId(blockId)) normal = bumpedNormal;
+#endif
+
 #if defined GB_RAW
 	out0 = vec4(albedo.rgb, 1.0);
 
@@ -203,7 +254,7 @@ void main() {
 	#ifdef GB_ENTITY
 	material = MAT_ENTITY;
 	#endif
-	if (blockId == ID_FOLIAGE) material = MAT_FOLIAGE;
+	if (isFoliageId(blockId)) material = MAT_FOLIAGE;
 	else if (blockId == ID_EMISSIVE) material = MAT_EMISSIVE;
 	#ifdef GB_PRELIT
 	// Translucent entities (player skins) may be drawn after deferred, so they are lit
@@ -256,7 +307,9 @@ void main() {
 	}
 	out0 = result;
 	out1 = vec4(encodeNormal(normal), light.x, 1.0);
-	out2 = vec4(ao, encodeMaterial(surface, false), light.y, 1.0);
+	// Water keeps its opacity in place of AO, which nothing reads for it:
+	// composite1 needs it to refract the scene behind.
+	out2 = vec4(surface == MAT_WATER ? result.a : ao, encodeMaterial(surface, false), light.y, 1.0);
 	#elif defined GB_WEATHER
 	// Snowflakes: small white scatterers lit like any matte surface.
 	vec3 snow = shadeSurface(vec3(0.8), playerPos, normal, light, 1.0, MAT_FLAT, useShadowMap, dither, vec4(0.0, 0.0, 0.0, 1.0), 1.0);

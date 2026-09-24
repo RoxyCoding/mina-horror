@@ -5,7 +5,10 @@ const float PI = 3.14159265359;
 
 // Block ids from block.properties.
 const int ID_WATER = 10;
-const int ID_FOLIAGE = 20;
+const int ID_LEAVES = 20;        // Leaves and plants take 20-23 (see block.properties).
+const int ID_ROOTED_PLANT = 21;
+const int ID_TALL_PLANT_TOP = 22;
+const int ID_STIFF_PLANT = 23;
 const int ID_EMISSIVE = 30;
 const int ID_GLASS = 40;
 
@@ -34,9 +37,11 @@ uniform vec3 shadowLightPosition;
 uniform vec3 cameraPosition;
 uniform vec3 fogColor;
 uniform float rainStrength;
+uniform float thunderStrength;
 uniform float wetness;
 uniform float frameTime;
 uniform float frameTimeCounter;
+uniform int frameCounter;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float near;
@@ -52,6 +57,10 @@ uniform bool hasSkylight;
 // Tileable noise (tex/noise.png): r = Perlin-Worley, g = smooth fbm, b = cells.
 uniform sampler2D noisetex;
 
+bool isFoliageId(int id) {
+	return id >= ID_LEAVES && id <= ID_STIFF_PLANT;
+}
+
 float luminance(vec3 color) {
 	return dot(color, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -65,8 +74,22 @@ vec3 linearToSrgb(vec3 color) {
 }
 
 // Spreads neighbouring pixels evenly over [0,1); a 3x3 blur averages it out.
+// With TAA the pattern also moves every frame, so the history averages it
+// over time as well.
 float interleavedGradientNoise(vec2 pixel) {
+#ifdef TAA
+	pixel += 5.588238 * float(frameCounter % 64);
+#endif
 	return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
+}
+
+// This frame's sub-pixel offset for TAA, in pixels: a Halton (2, 3) sequence
+// over 8 frames covers the pixel evenly.
+vec2 taaJitter() {
+	const vec2 OFFSETS[8] = vec2[](
+		vec2(0.5, 0.333333), vec2(0.25, 0.666667), vec2(0.75, 0.111111), vec2(0.125, 0.444444),
+		vec2(0.625, 0.777778), vec2(0.375, 0.222222), vec2(0.875, 0.555556), vec2(0.0625, 0.888889));
+	return OFFSETS[frameCounter % 8] - 0.5;
 }
 
 float hash13(vec3 p) {
@@ -194,10 +217,22 @@ float eyeWaterDepth() {
 // Standing water on flat ground open to the sky. Puddles grow as rain goes on
 // (wetness rises slowly) and cover about a fifth of the ground at most.
 float puddleAmount(vec3 worldPos, vec3 normal, float skyLight) {
-	if (wetness <= 0.001 || normal.y < 0.95) return 0.0;
+	// Bumpy tops tilt a little (see TEXTURE_BUMPS); walls and undersides never hold water.
+	if (wetness <= 0.001 || normal.y < 0.8) return 0.0;
 	float n = texture(noisetex, worldPos.xz * 0.012).g * 0.6 + texture(noisetex, worldPos.xz * 0.05 + 0.3).g * 0.4;
 	float threshold = mix(0.75, 0.6, wetness);
 	return smoothstep(threshold, threshold + 0.05, n) * smoothstep(0.85, 0.97, skyLight) * wetness;
+}
+
+// Rain soaks surfaces that face the open sky.
+// Tops soak fully, walls catch driven rain, undersides stay dry; puddles are
+// a film of water on top.
+float surfaceWetness(vec3 normal, float skyLight, int material, vec3 worldPos) {
+	if (material == MAT_FLAT || material == MAT_EMISSIVE) return 0.0;
+	float exposure = normal.y < -0.3 ? 0.0 : mix(0.4, 1.0, clamp(normal.y * 1.5, 0.0, 1.0));
+	float wet = wetness * smoothstep(0.85, 0.97, skyLight) * exposure;
+	if (material == MAT_DEFAULT) wet = max(wet, puddleAmount(worldPos, normal, skyLight));
+	return wet;
 }
 
 // Slope of rings spreading from raindrops hitting still water.

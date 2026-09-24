@@ -37,8 +37,34 @@ vec3 glare() {
 	return sum / weightSum;
 }
 
+// A real lens focuses colours slightly differently: towards the edges of the
+// picture red and blue fringes separate a little from green.
+vec3 sceneColor() {
+#ifdef CHROMATIC_ABERRATION
+	vec2 fromCenter = texcoord - 0.5;
+	vec2 shift = fromCenter * dot(fromCenter, fromCenter) * 0.006;
+	return vec3(texture(colortex0, texcoord - shift).r, texture(colortex0, texcoord).g, texture(colortex0, texcoord + shift).b);
+#else
+	return texture(colortex0, texcoord).rgb;
+#endif
+}
+
+// Less light reaches the edges of the picture: an oblique bundle of rays
+// meets the sensor spread out and at a slant (the cos^4 law), toned down the
+// way camera lenses are designed to.
+float lensVignette() {
+	vec2 ndc = texcoord * 2.0 - 1.0;
+	vec2 slope = ndc / vec2(gbufferProjection[0][0], gbufferProjection[1][1]);
+	float cosTheta = inversesqrt(1.0 + dot(slope, slope));
+	float cos2 = cosTheta * cosTheta;
+	return mix(1.0, cos2 * cos2, 0.35);
+}
+
 void main() {
-	vec3 color = texture(colortex0, texcoord).rgb;
+	vec3 color = sceneColor();
+#ifdef LENS_VIGNETTE
+	color *= lensVignette();
+#endif
 #ifdef BLOOM
 	// Energy conserving: a small share of each pixel's light is spread around it.
 	color = mix(color, glare(), 0.04 * BLOOM_STRENGTH);
@@ -54,6 +80,17 @@ void main() {
 #endif
 	color *= exposure * exp2(EXPOSURE_BIAS);
 	color = linearToSrgb(acesFilm(color));
+#ifdef SENSOR_NOISE
+	// Seeing in the dark means amplifying a weak signal, and the noise of the
+	// sensor with it: grain rises with the exposure and shows most in the shadows.
+	float gain = smoothstep(0.4, 6.0, exposure);
+	if (gain > 0.0) {
+		vec4 random = hash43(vec3(gl_FragCoord.xy, float(frameCounter % 1024)));
+		float grain = random.x + random.y - 1.0;
+		vec3 chroma = (random.zwx - 0.5) * 0.3;
+		color += (grain + chroma) * gain * 0.05 * (1.0 - 0.7 * luminance(color));
+	}
+#endif
 	// Breaks up banding in dark gradients.
 	color += (interleavedGradientNoise(gl_FragCoord.xy) - 0.5) / 255.0;
 	fragColor = vec4(color, 1.0);

@@ -4,7 +4,7 @@
 #include "/lib/atmosphere.glsl"
 #include "/lib/rain.glsl"
 
-// Rain as the eye sees it, drawn over the finished scene:
+// Temporal antialiasing, then rain as the eye sees it, drawn over the result:
 //   near drops from the vanilla weather quads (colortex8) bend the light behind them,
 //   layers of distant rain fill the space beyond the vanilla rain radius,
 //   and drops on the lens show small blurred, upside-down images.
@@ -12,15 +12,20 @@
 const bool colortex0MipmapEnabled = true;
 
 uniform sampler2D colortex0;
+uniform sampler2D colortex5;
 uniform sampler2D colortex8;
+uniform sampler2D colortex10;
 uniform sampler2D depthtex0;
 uniform int biome_precipitation; // 0 none, 1 rain, 2 snow
 uniform float lensRainExposure;   // shaders.properties: 1 under open sky, eased in and out
 
 in vec2 texcoord;
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,10 */
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outHistory; // The antialiased scene, before rain and lens drops.
+
+#include "/lib/taa.glsl"
 
 // Light a raindrop picks up: the sky around it, and a glint towards the sun or moon.
 vec3 rainDropLight(vec3 dir) {
@@ -56,7 +61,13 @@ vec4 distantRain(vec3 dir, float sceneDistance) {
 
 void main() {
 	// colortex0 has mipmaps here; sample level 0 explicitly, also inside branches.
+#ifdef TAA
+	vec3 color = temporalAntialias(max(texelFetch(colortex5, ivec2(0), 0).r, 0.05));
+#else
 	vec3 color = textureLod(colortex0, texcoord, 0.0).rgb;
+#endif
+	color = sanitizeColor(color);
+	outHistory = vec4(color, 1.0);
 	vec2 texel = 1.0 / vec2(viewWidth, viewHeight);
 	bool raining = hasSkylight && biome_precipitation == 1 && isEyeInWater == 0;
 

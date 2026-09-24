@@ -11,6 +11,8 @@
 
 // Pass 2 of the deferred stage: lights the G-buffer, fills the sky with the
 // procedural atmosphere, sun, moon and stars, and lays the clouds over both.
+// The result is also kept in colortex9, the scene without water, for
+// composite1 to refract.
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
@@ -23,8 +25,9 @@ uniform sampler2D depthtex0;
 
 in vec2 texcoord;
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,9 */
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outOpaque;
 
 // Edge-aware blur of the traced indirect light. Samples are also weighted down
 // by how bright they look on screen, so rare very bright ray hits cannot turn
@@ -121,4 +124,5 @@ void main() {
 #endif
 
 	outColor = vec4(sanitizeColor(color), 1.0);
+	outOpaque = outColor;
 }
