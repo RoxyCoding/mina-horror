@@ -1,8 +1,13 @@
 // Procedural sun, moon and stars replacing the vanilla sprites.
 // Needs shadow.glsl (sunPathRotation) and atmosphere.glsl.
 
-const float MOON_ANGULAR_RADIUS = 0.011;
-const float MOON_DISK_RADIANCE = 1.2;
+// The real moon: 0.52 degrees across. Its surface is about 600000 times
+// dimmer than the sun's, as in the real sky: pale against a daytime sky,
+// bright but still showing its maria at night.
+const float MOON_ANGULAR_RADIUS = 0.00452;
+const float MOON_DISK_RADIANCE = 0.15;
+// Warm grey regolith; the atmosphere tints it further near the horizon.
+const vec3 MOON_ALBEDO_TINT = vec3(1.0, 0.96, 0.9);
 
 // Frame that turns with the sky: the sun path lies in the plane normal to the axis.
 mat3 celestialFrame(vec3 sunDir) {
@@ -11,35 +16,116 @@ mat3 celestialFrame(vec3 sunDir) {
 	return mat3(sunDir, cross(axis, sunDir), axis);
 }
 
+// A point on the near side of the moon from selenographic longitude and
+// latitude in degrees: x east (towards Mare Crisium), y north, z towards Earth.
+vec3 selenographic(float longitude, float latitude) {
+	float lon = radians(longitude);
+	float lat = radians(latitude);
+	return vec3(cos(lat) * sin(lon), sin(lat), cos(lat) * cos(lon));
+}
+
+// How much of a mare covers n. Lava flooded the basins unevenly, so the
+// shores wander in and out.
+float mare(vec3 n, float ragged, float longitude, float latitude, float radiusDegrees) {
+	float angle = acos(clamp(dot(n, selenographic(longitude, latitude)), -1.0, 1.0));
+	float radius = radians(radiusDegrees);
+	return 1.0 - smoothstep(radius * 0.7, radius * 1.3, angle + (ragged - 0.5) * radius * 1.1);
+}
+
+// A young crater: a bright spot with streaks of ejecta thrown out radially.
+float rayedCrater(vec3 n, float longitude, float latitude, float craterDegrees, float reachDegrees, float seed) {
+	vec3 c = selenographic(longitude, latitude);
+	float angle = acos(clamp(dot(n, c), -1.0, 1.0));
+	float spot = exp(-pow(angle / radians(craterDegrees), 2.0));
+	float reach = radians(reachDegrees);
+	if (angle > reach) return spot;
+	vec3 t1 = normalize(cross(c, vec3(0.0, 1.0, 0.0)));
+	vec3 t2 = cross(c, t1);
+	float azimuth = atan(dot(n, t2), dot(n, t1)) / 6.2831853;
+	float streak = smoothstep(0.5, 0.8, texture(noisetex, vec2(azimuth, seed)).r)
+		* mix(0.6, 1.0, texture(noisetex, vec2(azimuth * 3.0, seed + angle * 2.0)).g);
+	float fade = 1.0 - angle / reach;
+	return spot + streak * fade * sqrt(fade) * smoothstep(0.0, radians(craterDegrees) * 1.5, angle);
+}
+
+// Relative albedo of the near side: dark basalt maria, bright highlands and
+// the rayed craters, laid out as on the real moon.
+float moonAlbedo(vec3 n) {
+	vec2 uv = n.xy * 0.45 + n.z * 0.13;
+	float ragged = texture(noisetex, uv + vec2(0.31, 0.57)).g * 0.6 + texture(noisetex, uv * 3.3 + 0.19).g * 0.4;
+	// Each mare with its own depth of colour: the iron and titanium-rich
+	// Tranquillitatis is darkest, Serenitatis and Imbrium a little lighter.
+	float dark = 0.0;
+	dark = max(dark, mare(n, ragged, -57.0, 22.0, 22.0) * 0.5);  // Oceanus Procellarum, a vast plain along the west
+	dark = max(dark, mare(n, ragged, -48.0, 2.0, 17.0) * 0.5);
+	dark = max(dark, mare(n, ragged, -65.0, 8.0, 14.0) * 0.5);
+	dark = max(dark, mare(n, ragged, -38.0, 38.0, 12.0) * 0.48);
+	dark = max(dark, mare(n, ragged, -16.0, 33.0, 17.0) * 0.5);   // Mare Imbrium
+	dark = max(dark, mare(n, ragged, 17.5, 28.0, 11.0) * 0.44);   // Mare Serenitatis
+	dark = max(dark, mare(n, ragged, 31.0, 8.5, 12.0) * 0.58);    // Mare Tranquillitatis
+	dark = max(dark, mare(n, ragged, 59.0, 17.0, 8.5) * 0.55);    // Mare Crisium
+	dark = max(dark, mare(n, ragged, 51.0, -8.0, 11.0) * 0.48);   // Mare Fecunditatis
+	dark = max(dark, mare(n, ragged, 35.0, -15.0, 5.5) * 0.48);   // Mare Nectaris
+	dark = max(dark, mare(n, ragged, -17.0, -21.0, 11.0) * 0.46); // Mare Nubium
+	dark = max(dark, mare(n, ragged, -23.0, -10.0, 6.0) * 0.46);  // Mare Cognitum
+	dark = max(dark, mare(n, ragged, -39.0, -24.0, 6.5) * 0.5);   // Mare Humorum
+	dark = max(dark, mare(n, ragged, -31.0, 7.0, 7.5) * 0.46);    // Mare Insularum
+	dark = max(dark, mare(n, ragged, 4.0, 13.0, 4.0) * 0.46);     // Mare Vaporum
+	dark = max(dark, mare(n, ragged, -25.0, 56.0, 6.0) * 0.42);   // Mare Frigoris, a long belt in the north
+	dark = max(dark, mare(n, ragged, 0.0, 56.0, 6.5) * 0.42);
+	dark = max(dark, mare(n, ragged, 25.0, 57.0, 5.5) * 0.42);
+
+	// Highlands saturated with craters of every size, brightest in the south.
+	float craters = texture(noisetex, uv * 1.7 + vec2(0.13, 0.71)).b * 0.5 + texture(noisetex, uv * 4.1 + 0.4).b * 0.3
+		+ texture(noisetex, uv * 9.0 + 0.7).b * 0.2;
+	float albedo = (1.0 - dark) * mix(0.8, 1.1, craters) * (1.0 + 0.08 * smoothstep(0.2, -0.6, n.y));
+	// Mottling within the maria, from lava flows of different ages.
+	albedo *= mix(1.0, mix(0.85, 1.15, ragged), dark * 2.0);
+
+	float rays = rayedCrater(n, -11.4, -43.3, 1.5, 55.0, 0.13) * 0.8  // Tycho
+		+ rayedCrater(n, -20.0, 9.6, 1.6, 20.0, 0.37) * 0.5            // Copernicus
+		+ rayedCrater(n, -38.0, 8.1, 0.9, 12.0, 0.61) * 0.4            // Kepler
+		+ rayedCrater(n, -47.4, 23.7, 0.9, 6.0, 0.83) * 0.9            // Aristarchus, the brightest spot
+		+ rayedCrater(n, 47.0, 16.1, 0.8, 9.0, 0.29) * 0.35;           // Proclus
+	return albedo + rays * 0.6;
+}
+
 vec3 moonDisk(vec3 dir, vec3 sunDir) {
 	vec3 moonDir = -sunDir;
-	float cosAngle = dot(dir, moonDir);
-	if (cosAngle < cos(MOON_ANGULAR_RADIUS)) return vec3(0.0);
-	vec3 right = normalize(cross(moonDir, vec3(0.0, 0.0, 1.0)));
-	vec3 up = cross(right, moonDir);
-	vec2 q = vec2(dot(dir, right), dot(dir, up)) / sin(MOON_ANGULAR_RADIUS);
-	float r2 = dot(q, q);
-	if (r2 >= 1.0) return vec3(0.0);
-	vec3 n = vec3(q, sqrt(1.0 - r2));
+	// The distance, unlike a dot product this close to 1, survives rounding.
+	if (length(dir - moonDir) > MOON_ANGULAR_RADIUS * SUN_MOON_SIZE * 1.3) return vec3(0.0);
+	// The moon keeps its north towards the celestial pole as it crosses the sky.
+	float tilt = radians(sunPathRotation);
+	vec3 pole = -vec3(0.0, sin(tilt), cos(tilt));
+	vec3 up = normalize(pole - moonDir * dot(pole, moonDir));
+	vec3 right = cross(moonDir, up);
+	float radius = MOON_ANGULAR_RADIUS * SUN_MOON_SIZE;
+	vec2 q = skyDiscCoord(dir, moonDir, radius, right, up);
+	float r = length(q);
+	float pixel = skyDiscPixel(radius);
+	float coverage = 1.0 - smoothstep(1.0 - pixel, 1.0 + pixel, r);
+	if (coverage <= 0.0) return vec3(0.0);
+	q /= max(r, 1.0);
+	vec3 n = vec3(q, sqrt(max(1.0 - dot(q, q), 0.0)));
 
-	// Phase 0 is full (lit from behind the viewer), 4 is new (lit from behind the moon).
+	// Phase 0 is full, 4 is new. Waning moons (1-3) are lit from the east,
+	// the left as seen from the north; waxing ones (5-7) from the west.
 	float phaseAngle = float(moonPhase) * (PI / 4.0);
-	vec3 toSun = vec3(sin(phaseAngle), 0.0, cos(phaseAngle));
+	vec3 toSun = vec3(-sin(phaseAngle), 0.0, cos(phaseAngle));
 	float mu0 = dot(n, toSun);
-	// Lommel-Seeliger: the regolith looks evenly bright right up to the limb.
+	// Lommel-Seeliger: the regolith looks evenly bright right up to the limb,
+	// and the full moon brightens sharply as shadows vanish (opposition surge).
 	float lit = mu0 > 0.0 ? 2.0 * mu0 / (mu0 + n.z) : 0.0;
-	lit *= smoothstep(-0.02, 0.06, mu0);
+	float sunMoonAngle = min(phaseAngle, 2.0 * PI - phaseAngle);
+	lit *= smoothstep(-0.01, 0.03, mu0) * (1.0 + 0.35 * exp(-sunMoonAngle / 0.12));
+	// Sunlight reflected by the Earth: the dark part glows faintly, most
+	// around new moon when the Earth, seen from the moon, is nearly full.
+	float earthPhase = (1.0 - cos(phaseAngle)) * 0.5;
+	float earthshine = 0.012 * earthPhase * earthPhase;
 
-	// Dark maria, bright highlands and a few craters.
-	float maria = smoothstep(0.42, 0.62, texture(noisetex, q * 0.22 + vec2(0.31, 0.57)).g);
-	float craters = texture(noisetex, q * 0.6 + vec2(0.13, 0.71)).b;
-	float albedo = mix(1.0, 0.55, maria) * mix(0.85, 1.05, craters);
-
-	float earthshine = 0.015;
-	float edge = 1.0 - smoothstep(0.9, 1.0, sqrt(r2));
-	vec3 transmittance = atmosphereTransmittance(moonDir.y, hazeAmount());
-	return MOON_DISK_RADIANCE * NIGHT_BRIGHTNESS * MOON_TINT * albedo * (lit + earthshine) * edge * transmittance
-		* (1.0 - rainStrength) * smoothstep(-0.01, 0.01, dir.y);
+	vec3 transmittance = discTransmittance(dir.y);
+	return MOON_DISK_RADIANCE * MOON_ALBEDO_TINT * moonAlbedo(n) * (lit + earthshine) * coverage * transmittance
+		* (1.0 - rainStrength) * smoothstep(-0.002, 0.002, dir.y);
 }
 
 float nightAmount(vec3 sunDir) {

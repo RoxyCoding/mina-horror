@@ -50,3 +50,5 @@ option.SENSOR_NOISE=暗所のノイズ
 option.SENSOR_NOISE.comment=暗い場所で露出が上がると、カメラのようにざらつきが出ます。
 option.CIRRUS_CLOUDS=巻雲（高い空のすじ雲）
 option.CIRRUS_AMOUNT=巻雲の量
+option.SUN_MOON_SIZE=太陽と月の大きさ
+option.SUN_MOON_SIZE.comment=1.0が実際の大きさ（約0.5度）です。

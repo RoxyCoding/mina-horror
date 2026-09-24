@@ -20,6 +20,7 @@
 #define SKY_BRIGHTNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define STAR_BRIGHTNESS 1.0 // [0.0 0.5 1.0 2.0 4.0]
 #define MOON_PHASE_BRIGHTNESS
+#define SUN_MOON_SIZE 1.0 // [1.0 1.5 2.0 3.0 4.0]
 #define VOLUMETRIC_CLOUDS
 #define CLOUD_COVERAGE 0.45 // [0.2 0.3 0.4 0.45 0.5 0.6 0.7 0.8]
 #define CIRRUS_CLOUDS
