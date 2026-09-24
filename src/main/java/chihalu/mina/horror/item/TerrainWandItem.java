@@ -1,11 +1,12 @@
 package chihalu.mina.horror.item;
 
-import chihalu.mina.horror.terrain.SmoothRegions;
+import chihalu.mina.horror.terrain.SmoothColumns;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -13,12 +14,14 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
 /**
- * Chooses where the ground is smoothed: right-click two blocks to set the corners of a rectangle (all heights), or
- * sneak and right-click to remove the areas covering a block.
+ * Chooses where the ground is smoothed, a brush at a time: right-click the ground to smooth there (hold the button and
+ * sweep to paint), sneak and right-click it to put it back. Sneak and right-click the air to change the brush size.
  */
 public class TerrainWandItem extends Item {
-	/** First corner of each player's selection in progress. */
-	private static final Map<UUID, BlockPos> FIRST_CORNERS = new ConcurrentHashMap<>();
+	/** Brush sizes in blocks across; the largest is rounded off at its corners. */
+	private static final int[] SIZES = {1, 3, 5};
+	/** Index into {@link #SIZES} for each player who changed it. */
+	private static final Map<UUID, Integer> BRUSHES = new ConcurrentHashMap<>();
 
 	public TerrainWandItem(Properties properties) {
 		super(properties);
@@ -31,30 +34,26 @@ public class TerrainWandItem extends Item {
 		Level level = context.getLevel();
 		if (level.isClientSide()) return InteractionResult.SUCCESS;
 		BlockPos pos = context.getClickedPos();
-		UUID id = player.getUUID();
+		boolean smooth = !player.isShiftKeyDown();
+		int size = SIZES[BRUSHES.getOrDefault(player.getUUID(), 0)];
+		int radius = size / 2;
+		for (int dx = -radius; dx <= radius; dx++) {
+			for (int dz = -radius; dz <= radius; dz++) {
+				if (dx * dx + dz * dz > radius * radius + 1) continue;
+				SmoothColumns.set(level, pos.getX() + dx, pos.getZ() + dz, smooth);
+			}
+		}
+		player.sendOverlayMessage(Component.translatable(smooth ? "item.mina-horror.terrain_wand.smoothed" : "item.mina-horror.terrain_wand.restored", size, size));
+		return InteractionResult.SUCCESS;
+	}
 
-		if (player.isShiftKeyDown()) {
-			FIRST_CORNERS.remove(id);
-			int removed = SmoothRegions.removeAt(level, pos.getX(), pos.getZ());
-			player.sendOverlayMessage(removed > 0
-				? Component.translatable("item.mina-horror.terrain_wand.removed", removed)
-				: Component.translatable("item.mina-horror.terrain_wand.nothing_here"));
-			return InteractionResult.SUCCESS;
-		}
-
-		BlockPos first = FIRST_CORNERS.remove(id);
-		if (first == null) {
-			FIRST_CORNERS.put(id, pos.immutable());
-			player.sendOverlayMessage(Component.translatable("item.mina-horror.terrain_wand.first", pos.getX(), pos.getZ()));
-			return InteractionResult.SUCCESS;
-		}
-		SmoothRegions.Area area = SmoothRegions.Area.between(first, pos);
-		if (area.width() > SmoothRegions.MAX_SIZE || area.depth() > SmoothRegions.MAX_SIZE) {
-			player.sendOverlayMessage(Component.translatable("item.mina-horror.terrain_wand.too_large", SmoothRegions.MAX_SIZE));
-			return InteractionResult.SUCCESS;
-		}
-		SmoothRegions.add(level, area);
-		player.sendOverlayMessage(Component.translatable("item.mina-horror.terrain_wand.added", area.width(), area.depth()));
+	@Override
+	public InteractionResult use(Level level, Player player, InteractionHand hand) {
+		if (!player.isShiftKeyDown()) return InteractionResult.PASS;
+		if (level.isClientSide()) return InteractionResult.SUCCESS;
+		int next = (BRUSHES.getOrDefault(player.getUUID(), 0) + 1) % SIZES.length;
+		BRUSHES.put(player.getUUID(), next);
+		player.sendOverlayMessage(Component.translatable("item.mina-horror.terrain_wand.brush", SIZES[next], SIZES[next]));
 		return InteractionResult.SUCCESS;
 	}
 }

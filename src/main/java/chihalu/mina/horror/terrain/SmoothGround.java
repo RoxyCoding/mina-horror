@@ -19,13 +19,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * Smoothed ground, shared by the drawn slopes (client) and the collision (both sides) so the two always agree.
  *
- * <p>Inside the areas chosen with the terrain wand ({@link SmoothRegions}), every top corner of natural ground moves to
- * a height shared by the four block columns meeting there: their average, where the tops lie within {@link #SPAN}
+ * <p>Around the columns marked with the terrain wand ({@link SmoothColumns}), every top corner of natural ground that
+ * touches a marked column moves to a height shared by the four block columns meeting there: their average, where the tops lie within {@link #SPAN}
  * blocks of each other, but never lower than one block below the highest. Every column's uppermost side face then
  * keeps its height, and the side faces of a higher column always reach down to the lower column's top, so the
  * surface stays closed. Blocks whose tops meet at a corner search overlapping ranges that both hold all four tops,
- * so they agree on it. Corners next to anything but open space and ground (buildings, trunks, paths), outside the
- * chosen areas, or at cliffs higher than {@link #SPAN}, keep their square shape.
+ * so they agree on it, marked or not. Corners touching no marked column, next to anything but open space and ground
+ * (buildings, trunks, paths), or at cliffs higher than {@link #SPAN}, keep their square shape.
  */
 public final class SmoothGround {
 	/** Natural ground whose top corners are smoothed. */
@@ -107,11 +107,9 @@ public final class SmoothGround {
 
 	/**
 	 * Height of the top of the ground in column (x, z), searched within {@link #SPAN} blocks of y, or {@link #NONE}
-	 * outside the chosen areas, where something other than open space and ground comes first, or where the ground
-	 * rises past the search.
+	 * where something other than open space and ground comes first, or where the ground rises past the search.
 	 */
-	private static int groundTop(BlockGetter level, SmoothRegions.Regions regions, BlockPos.MutableBlockPos cursor, int x, int y, int z) {
-		if (!regions.contains(x, z)) return NONE;
+	private static int groundTop(BlockGetter level, BlockPos.MutableBlockPos cursor, int x, int y, int z) {
 		for (int dy = SPAN; dy >= -SPAN - 1; dy--) {
 			BlockState state = level.getBlockState(cursor.set(x, y + dy, z));
 			if (isGround(state)) return dy == SPAN ? NONE : y + dy + 1;
@@ -121,17 +119,21 @@ public final class SmoothGround {
 	}
 
 	/** Smoothed top for the block column at (x, z) whose ground ends at height y, or null where nothing moves. */
-	public static @Nullable Top top(BlockGetter level, SmoothRegions.Regions regions, int x, int y, int z) {
-		if (regions.isEmpty()) return null;
+	public static @Nullable Top top(BlockGetter level, SmoothColumns.Lookup marks, int x, int y, int z) {
+		boolean[][] marked = new boolean[3][3];
+		boolean any = false;
+		for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) any |= marked[dx + 1][dz + 1] = marks.has(x + dx, z + dz);
+		if (!any) return null;
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		int[][] tops = new int[3][3];
-		for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) tops[dx + 1][dz + 1] = groundTop(level, regions, cursor, x + dx, y, z + dz);
+		for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) tops[dx + 1][dz + 1] = groundTop(level, cursor, x + dx, y, z + dz);
 		float[] offsets = new float[4];
 		float[][] normals = new float[4][];
 		boolean moved = false;
 		for (int i = 0; i <= 1; i++) {
 			for (int j = 0; j <= 1; j++) {
 				int a = tops[i][j], b = tops[i + 1][j], c = tops[i][j + 1], d = tops[i + 1][j + 1];
+				if (!(marked[i][j] || marked[i + 1][j] || marked[i][j + 1] || marked[i + 1][j + 1])) continue;
 				if (a == NONE || b == NONE || c == NONE || d == NONE) continue;
 				int high = Math.max(Math.max(a, b), Math.max(c, d));
 				int low = Math.min(Math.min(a, b), Math.min(c, d));
@@ -159,17 +161,18 @@ public final class SmoothGround {
 	}
 
 	/**
-	 * Collision and outline of a ground block on the surface of a chosen area: columns rising to the slope, or null
+	 * Collision and outline of a surface ground block next to a marked column: columns rising to the slope, or null
 	 * where the block keeps its cube.
 	 */
 	public static @Nullable VoxelShape shapeFor(BlockState state, BlockGetter getter, BlockPos pos) {
 		if (!GROUND.contains(state.getBlock())) return null;
 		Level level = levelOf(getter);
 		if (level == null) return null;
-		SmoothRegions.Regions regions = SmoothRegions.of(level);
-		if (regions.isEmpty() || !regions.contains(pos.getX(), pos.getZ())) return null;
+		// The marks first: away from a server's main thread they read as none, before any block is looked up.
+		SmoothColumns.Lookup marks = new SmoothColumns.Lookup(level);
+		if (!marks.anyAround(pos.getX(), pos.getZ())) return null;
 		if (!state.isSolidRender() || !isOpen(level.getBlockState(pos.above()))) return null;
-		Top top = top(level, regions, pos.getX(), pos.getY() + 1, pos.getZ());
+		Top top = top(level, marks, pos.getX(), pos.getY() + 1, pos.getZ());
 		return top == null ? null : slopeShape(top);
 	}
 

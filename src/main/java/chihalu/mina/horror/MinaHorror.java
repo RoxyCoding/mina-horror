@@ -3,7 +3,7 @@ package chihalu.mina.horror;
 import chihalu.mina.horror.registry.MinaHorrorEntities;
 import chihalu.mina.horror.registry.MinaHorrorItems;
 import chihalu.mina.horror.terrain.SmoothGround;
-import chihalu.mina.horror.terrain.SmoothRegions;
+import chihalu.mina.horror.terrain.SmoothColumns;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
@@ -28,7 +28,7 @@ public class MinaHorror implements ModInitializer {
 		MinaHorrorEntities.init();
 		MinaHorrorItems.init();
 		SmoothGround.init();
-		SmoothRegions.init();
+		SmoothColumns.init();
 	}
 
 	public static Identifier id(String path) {

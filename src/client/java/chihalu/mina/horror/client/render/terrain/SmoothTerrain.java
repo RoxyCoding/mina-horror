@@ -1,11 +1,9 @@
 package chihalu.mina.horror.client.render.terrain;
 
+import chihalu.mina.horror.terrain.SmoothColumns;
 import chihalu.mina.horror.terrain.SmoothGround;
-import chihalu.mina.horror.terrain.SmoothRegions;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Predicate;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.client.model.loading.v1.wrapper.WrapperBlockStateModel;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
@@ -21,17 +19,14 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws the ground in the areas chosen with the terrain wand as slopes ({@link SmoothGround}), matching the collision
+ * Draws the ground around the columns marked with the terrain wand as slopes ({@link SmoothGround}), matching the collision
  * the same class gives it on both sides. Plants and snow layers standing on it follow it.
  */
 public final class SmoothTerrain {
-	/** The areas the chunk meshes were last built for. */
-	private static SmoothRegions.Regions drawn = new SmoothRegions.Regions(List.of());
-	private static @Nullable ClientLevel drawnLevel;
-
 	private SmoothTerrain() { }
 
 	public static void register() {
@@ -41,35 +36,36 @@ public final class SmoothTerrain {
 			if (SmoothGround.isRestingBlock(block)) return new RestingModel(original);
 			return original;
 		}));
-		ClientTickEvents.END_CLIENT_TICK.register(SmoothTerrain::redrawChangedAreas);
+		ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> chunk.onAttachedSet(SmoothColumns.type())
+			.register((before, after) -> redrawChanged(level, chunk, before, after)));
 	}
 
-	/** The areas of the dimension being drawn; read from chunk meshing threads, hence an immutable snapshot. */
-	private static SmoothRegions.Regions regions() {
+	/** Marks of the dimension being drawn; read from chunk meshing threads. */
+	private static SmoothColumns.@Nullable Lookup marks() {
 		ClientLevel level = Minecraft.getInstance().level;
-		return level != null ? SmoothRegions.of(level) : new SmoothRegions.Regions(List.of());
+		return level != null ? new SmoothColumns.Lookup(level) : null;
 	}
 
-	/** Areas added or removed by the server: rebuild the chunk meshes they touch. */
-	private static void redrawChangedAreas(Minecraft minecraft) {
-		ClientLevel level = minecraft.level;
-		if (level == null) {
-			drawnLevel = null;
-			return;
+	/** Columns marked or cleared by the server, or arriving with their chunk: rebuild the meshes they reach. */
+	private static void redrawChanged(ClientLevel level, LevelChunk chunk, SmoothColumns.@Nullable Marks before, SmoothColumns.@Nullable Marks after) {
+		int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+		for (int x = 0; x < 16; x++) {
+			for (int z = 0; z < 16; z++) {
+				boolean was = before != null && before.has(x, z);
+				boolean is = after != null && after.has(x, z);
+				if (was == is) continue;
+				minX = Math.min(minX, x);
+				minZ = Math.min(minZ, z);
+				maxX = Math.max(maxX, x);
+				maxZ = Math.max(maxZ, z);
+			}
 		}
-		SmoothRegions.Regions current = SmoothRegions.of(level);
-		if (level == drawnLevel && current.equals(drawn)) return;
-		List<SmoothRegions.Area> changed = new ArrayList<>();
-		for (SmoothRegions.Area area : current.areas()) if (!drawn.areas().contains(area)) changed.add(area);
-		if (level == drawnLevel) for (SmoothRegions.Area area : drawn.areas()) if (!current.areas().contains(area)) changed.add(area);
-		drawn = current;
-		drawnLevel = level;
-		for (SmoothRegions.Area area : changed) {
-			// Corners on the edge depend on the columns just outside the area.
-			level.setSectionRangeDirty(
-				SectionPos.blockToSectionCoord(area.minX() - 2), level.getMinSectionY(), SectionPos.blockToSectionCoord(area.minZ() - 2),
-				SectionPos.blockToSectionCoord(area.maxX() + 2), level.getMaxSectionY(), SectionPos.blockToSectionCoord(area.maxZ() + 2));
-		}
+		if (minX > maxX) return;
+		// A marked column moves the corners it shares with its neighbours.
+		int baseX = chunk.getPos().getMinBlockX(), baseZ = chunk.getPos().getMinBlockZ();
+		level.setSectionRangeDirty(
+			SectionPos.blockToSectionCoord(baseX + minX - 1), level.getMinSectionY(), SectionPos.blockToSectionCoord(baseZ + minZ - 1),
+			SectionPos.blockToSectionCoord(baseX + maxX + 1), level.getMaxSectionY(), SectionPos.blockToSectionCoord(baseZ + maxZ + 1));
 	}
 
 	/** Ground: the corners of its top move and take the slope's normal; its bottom and anything below stay put. */
@@ -81,8 +77,9 @@ public final class SmoothTerrain {
 		@Override
 		public void emitQuads(QuadEmitter emitter, BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, Predicate<Direction> cullTest) {
 			// Only the top block of a column meets the air; the ones under it keep their shape.
-			SmoothGround.Top top = SmoothGround.isOpen(level.getBlockState(pos.above()))
-				? SmoothGround.top(level, regions(), pos.getX(), pos.getY() + 1, pos.getZ()) : null;
+			SmoothColumns.Lookup marks = marks();
+			SmoothGround.Top top = marks != null && SmoothGround.isOpen(level.getBlockState(pos.above()))
+				? SmoothGround.top(level, marks, pos.getX(), pos.getY() + 1, pos.getZ()) : null;
 			if (top == null) {
 				super.emitQuads(emitter, level, pos, state, random, cullTest);
 				return;
@@ -124,8 +121,9 @@ public final class SmoothTerrain {
 			boolean upper = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
 				&& state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
 			BlockPos ground = upper ? pos.below(2) : pos.below();
-			SmoothGround.Top top = SmoothGround.isGround(level.getBlockState(ground))
-				? SmoothGround.top(level, regions(), ground.getX(), ground.getY() + 1, ground.getZ()) : null;
+			SmoothColumns.Lookup marks = marks();
+			SmoothGround.Top top = marks != null && SmoothGround.isGround(level.getBlockState(ground))
+				? SmoothGround.top(level, marks, ground.getX(), ground.getY() + 1, ground.getZ()) : null;
 			if (top == null) {
 				super.emitQuads(emitter, level, pos, state, random, cullTest);
 				return;
