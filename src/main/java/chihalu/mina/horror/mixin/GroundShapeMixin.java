@@ -47,4 +47,13 @@ public abstract class GroundShapeMixin {
 		VoxelShape own = cir.getReturnValue();
 		cir.setReturnValue(own.isEmpty() ? fill : Shapes.or(own, fill));
 	}
+
+	/**
+	 * Smoothed ground is no longer a full block: a player whose feet stand on one slope while its body reaches over
+	 * the lowered edge of the next must not be pushed out of it as if walking into a wall.
+	 */
+	@Inject(method = "isSuffocating", at = @At("HEAD"), cancellable = true)
+	private void smoothSuffocating(BlockGetter level, BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+		if (SmoothGround.shapeFor(this.asState(), level, pos) != null) cir.setReturnValue(false);
+	}
 }
