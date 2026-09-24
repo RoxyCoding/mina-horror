@@ -67,8 +67,13 @@ vec2 cloudWeather(vec2 xz) {
 	float patches = texture(noisetex, uv).g * 0.65 + texture(noisetex, uv * 2.3 + 0.37).g * 0.35;
 	// Clouds come in fields and streets with clear sky between them.
 	float coverage = clamp(cloudCoverageSetting() + (patches - 0.5) * 1.4, 0.0, 1.0);
-	float growth = smoothstep(0.3, 0.75, texture(noisetex, uv * 0.6 + vec2(0.61, 0.19)).r);
-	// Rain comes from a thick grey deck; storms build the tallest towers.
+	float weather = max(rainStrength, thunderStrength);
+	// Fair-weather cumulus stays apart as separate clouds; only bad weather
+	// closes them into a deck.
+	coverage = min(coverage, mix(0.62, 1.0, weather));
+	// Fair-weather cumulus is a few hundred metres thick and stays bright
+	// underneath. Rain comes from a thick grey deck; storms build the tallest towers.
+	float growth = smoothstep(0.3, 0.75, texture(noisetex, uv * 0.6 + vec2(0.61, 0.19)).r) * 0.35;
 	growth = mix(growth, 1.0, max(rainStrength * 0.7, thunderStrength));
 	return vec2(coverage, growth);
 }
@@ -83,7 +88,7 @@ vec3 cloudShapePos(vec3 p, float h) {
 // How dense a cloud can be at a height: a flat base that forms where rising
 // air reaches its dew point, and a rounded top that is higher on taller clouds.
 float cloudHeightProfile(float h, float growth) {
-	float top = mix(0.3, 1.0, growth);
+	float top = mix(0.18, 1.0, growth);
 	float base = smoothstep(0.0, 0.06, h);
 	float crown = 1.0 - smoothstep(top * 0.45, top, h);
 	return base * crown;
@@ -208,7 +213,7 @@ vec4 marchClouds(vec3 dir, float maxT, float dither, vec3 sunDir) {
 	vec3 light = celestialIlluminance(sunDir);
 	// Sky light on the tops, and light from the ground on the bases.
 	vec3 skyAmbient = skyRadiance(vec3(0.0, 1.0, 0.0), sunDir) * PI;
-	vec3 groundAmbient = (directIlluminance(sunDir) * max(lightDir.y, 0.0) + skyAmbient * 0.5) * vec3(0.16, 0.17, 0.12) * 0.5;
+	vec3 groundAmbient = (directIlluminance(sunDir) * max(lightDir.y, 0.0) + skyAmbient * 0.5) * vec3(0.16, 0.17, 0.12);
 	float cosTheta = dot(dir, lightDir);
 	float rain = 1.0 + rainStrength * 2.0;
 
@@ -262,7 +267,7 @@ vec4 marchClouds(vec3 dir, float maxT, float dither, vec3 sunDir) {
 		// Ambient light has to diffuse in from the outside of the cloud.
 		float ambientReach = exp(-sigma * 25.0) * 0.6 + 0.4;
 		vec3 ambient = mix(groundAmbient, skyAmbient, smoothstep(0.0, 0.6, h)) * ambientReach;
-		vec3 radiance = light * sunEnergy * 5.0 + ambient * 0.5;
+		vec3 radiance = light * sunEnergy * 5.0 + ambient * 0.8;
 
 		float stepTransmittance = exp(-sigma * stepLength);
 		scattered += transmittance * radiance * (1.0 - stepTransmittance);
