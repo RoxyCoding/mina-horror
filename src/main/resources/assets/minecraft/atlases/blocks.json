@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "type": "minecraft:unstitch",
+      "resource": "mina-horror:tree/poplar_atlas",
+      "divisor_x": 1254,
+      "divisor_y": 1254,
+      "regions": [
+        {"sprite": "mina-horror:block/poplar_bark", "x": 0, "y": 0, "width": 624, "height": 624},
+        {"sprite": "mina-horror:block/poplar_yellow", "x": 628, "y": 0, "width": 624, "height": 624},
+        {"sprite": "mina-horror:block/poplar_orange", "x": 0, "y": 628, "width": 624, "height": 624},
+        {"sprite": "mina-horror:block/poplar_red", "x": 628, "y": 628, "width": 624, "height": 624}
+      ]
+    }
+  ]
+}

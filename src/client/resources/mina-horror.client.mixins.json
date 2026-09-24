@@ -3,7 +3,11 @@
 	"package": "chihalu.mina.horror.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin"
+		"ExampleClientMixin",
+		"TreeFaceCullingMixin",
+		"TreeSectionVisibilityMixin",
+		"SodiumTreeFaceCullingMixin",
+		"SodiumTreeSectionVisibilityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

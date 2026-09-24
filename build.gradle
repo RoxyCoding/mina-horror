@@ -60,6 +60,24 @@ java {
 	targetCompatibility = JavaVersion.VERSION_25
 }
 
+// Check generated tree geometry without launching Minecraft or adding a test framework.
+sourceSets.test.compileClasspath += sourceSets.client.output
+sourceSets.test.runtimeClasspath += sourceSets.client.output
+tasks.register('checkTreeGeometry', JavaExec) {
+	dependsOn testClasses, clientClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'chihalu.mina.horror.client.render.tree.TreeGeometryCheck'
+	workingDir = projectDir
+}
+tasks.register('checkShaderPackInstall', JavaExec) {
+	dependsOn testClasses, clientClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'chihalu.mina.horror.client.shader.ShaderPackInstallCheck'
+	workingDir = projectDir
+}
+tasks.named('check') { dependsOn 'checkTreeGeometry', 'checkShaderPackInstall' }
+tasks.named('test') { failOnNoDiscoveredTests = false } // The geometry check is an executable main.
+
 jar {
 	def projectName = project.name
 	inputs.property "projectName", projectName

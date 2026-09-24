@@ -1,5 +1,7 @@
 package chihalu.mina.horror;
 
+import chihalu.mina.horror.registry.MinaHorrorEntities;
+import chihalu.mina.horror.registry.MinaHorrorItems;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
@@ -21,7 +23,8 @@ public class MinaHorror implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
-		LOGGER.info("Hello Fabric world!");
+		MinaHorrorEntities.init();
+		MinaHorrorItems.init();
 	}
 
 	public static Identifier id(String path) {
