@@ -20,14 +20,6 @@ public final class MinaHorrorItems {
 		new SpawnEggItem(new Item.Properties().spawnEgg(MinaHorrorEntities.BLACK_CAT).setId(BLACK_CAT_SPAWN_EGG_KEY))
 	);
 
-	public static final ResourceKey<Item> GIRL_SPAWN_EGG_KEY = ResourceKey.create(Registries.ITEM, MinaHorror.id("girl_spawn_egg"));
-
-	public static final Item GIRL_SPAWN_EGG = Registry.register(
-		BuiltInRegistries.ITEM,
-		GIRL_SPAWN_EGG_KEY,
-		new SpawnEggItem(new Item.Properties().spawnEgg(MinaHorrorEntities.GIRL).setId(GIRL_SPAWN_EGG_KEY))
-	);
-
 	private MinaHorrorItems() {
 	}
 
@@ -35,7 +27,6 @@ public final class MinaHorrorItems {
 		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.SPAWN_EGGS)
 			.register(output -> {
 				output.insertAfter(Items.CAT_SPAWN_EGG, BLACK_CAT_SPAWN_EGG);
-				output.accept(GIRL_SPAWN_EGG);
 			});
 	}
 }

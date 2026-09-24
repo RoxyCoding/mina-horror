@@ -1,7 +1,6 @@
 package chihalu.mina.horror.client;
 
 import chihalu.mina.horror.client.render.BlackCatRenderer;
-import chihalu.mina.horror.client.render.GirlRenderer;
 import chihalu.mina.horror.client.render.tree.NaturalTreeModels;
 import chihalu.mina.horror.client.shader.BundledShaderPack;
 import chihalu.mina.horror.registry.MinaHorrorEntities;
@@ -14,6 +13,5 @@ public class MinaHorrorClient implements ClientModInitializer {
 		NaturalTreeModels.register();
 		BundledShaderPack.install();
 		EntityRenderers.register(MinaHorrorEntities.BLACK_CAT, BlackCatRenderer::new);
-		EntityRenderers.register(MinaHorrorEntities.GIRL, GirlRenderer::new);
 	}
 }

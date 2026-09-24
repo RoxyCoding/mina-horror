@@ -2,7 +2,6 @@ package chihalu.mina.horror.registry;
 
 import chihalu.mina.horror.MinaHorror;
 import chihalu.mina.horror.entity.BlackCat;
-import chihalu.mina.horror.entity.Girl;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -25,24 +24,10 @@ public final class MinaHorrorEntities {
 			.build(BLACK_CAT_KEY)
 	);
 
-	public static final ResourceKey<EntityType<?>> GIRL_KEY = ResourceKey.create(Registries.ENTITY_TYPE, MinaHorror.id("girl"));
-
-	// The model is 1.6 blocks tall.
-	public static final EntityType<Girl> GIRL = Registry.register(
-		BuiltInRegistries.ENTITY_TYPE,
-		GIRL_KEY,
-		EntityType.Builder.<Girl>of(Girl::new, MobCategory.CREATURE)
-			.sized(0.6F, 1.6F)
-			.eyeHeight(1.38F)
-			.clientTrackingRange(10)
-			.build(GIRL_KEY)
-	);
-
 	private MinaHorrorEntities() {
 	}
 
 	public static void init() {
 		FabricDefaultAttributeRegistry.register(BLACK_CAT, BlackCat.createAttributes());
-		FabricDefaultAttributeRegistry.register(GIRL, Girl.createAttributes());
 	}
 }

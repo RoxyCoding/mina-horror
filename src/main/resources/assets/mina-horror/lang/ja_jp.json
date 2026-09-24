@@ -1,6 +1,4 @@
 {
   "entity.mina-horror.black_cat": "黒猫",
-  "item.mina-horror.black_cat_spawn_egg": "黒猫のスポーンエッグ",
-  "entity.mina-horror.girl": "女の子",
-  "item.mina-horror.girl_spawn_egg": "女の子のスポーンエッグ"
+  "item.mina-horror.black_cat_spawn_egg": "黒猫のスポーンエッグ"
 }
