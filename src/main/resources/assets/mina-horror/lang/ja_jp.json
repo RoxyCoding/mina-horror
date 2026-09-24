@@ -1,4 +1,10 @@
 {
   "entity.mina-horror.black_cat": "黒猫",
-  "item.mina-horror.black_cat_spawn_egg": "黒猫のスポーンエッグ"
+  "item.mina-horror.black_cat_spawn_egg": "黒猫のスポーンエッグ",
+  "item.mina-horror.terrain_wand": "地ならしの杖",
+  "item.mina-horror.terrain_wand.first": "1つ目の角 (%s, %s)。もう1つの角のブロックを右クリックしてください",
+  "item.mina-horror.terrain_wand.added": "%s×%s ブロックの範囲をなめらかにしました",
+  "item.mina-horror.terrain_wand.too_large": "範囲が大きすぎます（1辺 %s ブロックまで）",
+  "item.mina-horror.terrain_wand.removed": "なめらかにする範囲を %s 個解除しました",
+  "item.mina-horror.terrain_wand.nothing_here": "ここはなめらかにする範囲ではありません"
 }

@@ -1,6 +1,7 @@
 package chihalu.mina.horror.registry;
 
 import chihalu.mina.horror.MinaHorror;
+import chihalu.mina.horror.item.TerrainWandItem;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,6 +21,14 @@ public final class MinaHorrorItems {
 		new SpawnEggItem(new Item.Properties().spawnEgg(MinaHorrorEntities.BLACK_CAT).setId(BLACK_CAT_SPAWN_EGG_KEY))
 	);
 
+	public static final ResourceKey<Item> TERRAIN_WAND_KEY = ResourceKey.create(Registries.ITEM, MinaHorror.id("terrain_wand"));
+
+	public static final Item TERRAIN_WAND = Registry.register(
+		BuiltInRegistries.ITEM,
+		TERRAIN_WAND_KEY,
+		new TerrainWandItem(new Item.Properties().stacksTo(1).setId(TERRAIN_WAND_KEY))
+	);
+
 	private MinaHorrorItems() {
 	}
 
@@ -28,5 +37,7 @@ public final class MinaHorrorItems {
 			.register(output -> {
 				output.insertAfter(Items.CAT_SPAWN_EGG, BLACK_CAT_SPAWN_EGG);
 			});
+		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
+			.register(output -> output.accept(TERRAIN_WAND));
 	}
 }

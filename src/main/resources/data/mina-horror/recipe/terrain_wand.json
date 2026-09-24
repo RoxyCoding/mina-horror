@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "minecraft:stick",
+    "minecraft:dirt",
+    "minecraft:cobblestone"
+  ],
+  "result": {
+    "count": 1,
+    "id": "mina-horror:terrain_wand"
+  }
+}
