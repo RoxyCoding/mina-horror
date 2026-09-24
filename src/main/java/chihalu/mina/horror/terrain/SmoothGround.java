@@ -51,8 +51,6 @@ public final class SmoothGround {
 	/** Collision follows the slope in columns of this many per block side, in steps of 1/{@link #STEPS} block. */
 	private static final int CELLS = 4;
 	private static final int STEPS = 8;
-	/** Highest the collision reaches above its block, as with fences: a slope raised further is capped there. */
-	private static final float MAX_RISE = 0.5f;
 	private static final Map<Long, VoxelShape> SHAPES = new ConcurrentHashMap<>();
 
 	/**
@@ -161,8 +159,9 @@ public final class SmoothGround {
 	}
 
 	/**
-	 * Collision and outline of a surface ground block next to a marked column: columns rising to the slope, or null
-	 * where the block keeps its cube.
+	 * Collision and outline of a surface ground block next to a marked column: columns reaching up to the slope where
+	 * it lies within the block, or null where the block keeps its cube. Where the slope rises above the block, the open
+	 * blocks over it collide with the rest ({@link #fillFor}).
 	 */
 	public static @Nullable VoxelShape shapeFor(BlockState state, BlockGetter getter, BlockPos pos) {
 		if (!GROUND.contains(state.getBlock())) return null;
@@ -173,25 +172,59 @@ public final class SmoothGround {
 		if (!marks.anyAround(pos.getX(), pos.getZ())) return null;
 		if (!state.isSolidRender() || !isOpen(level.getBlockState(pos.above()))) return null;
 		Top top = top(level, marks, pos.getX(), pos.getY() + 1, pos.getZ());
-		return top == null ? null : slopeShape(top);
+		return top == null ? null : layerShape(top, 0);
 	}
 
-	/** Columns reaching up to the smoothed top, rounded to 1/{@link #STEPS} block; shared between equal slopes. */
-	static VoxelShape slopeShape(Top top) {
+	/**
+	 * Collision of an open block (air, plants, snow layers) standing up to {@link #SPAN} blocks over smoothed ground
+	 * whose slope rises into it: the part of the slope inside it, or null where there is none. Kept in the open blocks
+	 * rather than the ground so every shape stays within its block, where entities standing over it find it.
+	 */
+	public static @Nullable VoxelShape fillFor(BlockState state, BlockGetter getter, BlockPos pos) {
+		if (!isOpen(state)) return null;
+		Level level = levelOf(getter);
+		if (level == null) return null;
+		SmoothColumns.Lookup marks = new SmoothColumns.Lookup(level);
+		if (!marks.anyAround(pos.getX(), pos.getZ())) return null;
+		BlockPos.MutableBlockPos cursor = pos.mutable();
+		for (int layer = 1; layer <= SPAN; layer++) {
+			BlockState below = level.getBlockState(cursor.move(0, -1, 0));
+			if (isGround(below)) {
+				Top top = top(level, marks, pos.getX(), cursor.getY() + 1, pos.getZ());
+				return top == null ? null : layerShape(top, layer);
+			}
+			if (!isOpen(below)) return null;
+		}
+		return null;
+	}
+
+	/**
+	 * The part of the smoothed ground inside the block {@code layer} blocks above the ground block, as columns rounded
+	 * to 1/{@link #STEPS} block; null where it fills that block (the ground block) or misses it (an open block).
+	 * Shared between equal slopes.
+	 */
+	static @Nullable VoxelShape layerShape(Top top, int layer) {
 		long key = 0;
 		int[] heights = new int[CELLS * CELLS];
+		boolean full = true, empty = true;
 		for (int i = 0; i < CELLS; i++) {
 			for (int j = 0; j < CELLS; j++) {
 				float height = 1f + top.offsetAt((i + 0.5f) / CELLS, (j + 0.5f) / CELLS);
-				int steps = Math.clamp(Math.round(height * STEPS), 1, Math.round((1f + MAX_RISE) * STEPS));
+				int steps = Math.round(height * STEPS) - layer * STEPS;
+				// The ground block keeps at least a sliver, so nothing falls through where the slope dips to its bottom.
+				steps = Math.clamp(steps, layer == 0 ? 1 : 0, STEPS);
 				heights[i * CELLS + j] = steps;
-				key = key * 16 + steps;
+				full &= steps == STEPS;
+				empty &= steps == 0;
+				key = key << 4 | steps;
 			}
 		}
+		if (layer == 0 ? full : empty) return null;
 		return SHAPES.computeIfAbsent(key, k -> {
 			VoxelShape shape = Shapes.empty();
 			for (int i = 0; i < CELLS; i++) {
 				for (int j = 0; j < CELLS; j++) {
+					if (heights[i * CELLS + j] == 0) continue;
 					shape = Shapes.or(shape, Shapes.box((double) i / CELLS, 0.0, (double) j / CELLS,
 						(double) (i + 1) / CELLS, (double) heights[i * CELLS + j] / STEPS, (double) (j + 1) / CELLS));
 				}
