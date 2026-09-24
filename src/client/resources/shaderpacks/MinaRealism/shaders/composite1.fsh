@@ -121,8 +121,8 @@ void main() {
 
 	vec4 surface = texture(colortex3, texcoord);
 	int material = decodeMaterial(surface.g);
-	// Anything closer than half a block is the hand, not the surface behind it.
-	if (depth < 1.0 && isEyeInWater == 0 && -viewPos.z > 0.5) {
+	// The hand is flagged as prelit; it hides the surface behind it.
+	if (depth < 1.0 && isEyeInWater == 0 && !isPrelit(surface.g)) {
 		vec3 normal = decodeNormal(texture(colortex2, texcoord).xy);
 		float amount = material == MAT_WATER || material == MAT_GLASS ? 1.0
 			: gbufferPuddle(texture(colortex1, texcoord), surface, playerPos + cameraPosition, normal);

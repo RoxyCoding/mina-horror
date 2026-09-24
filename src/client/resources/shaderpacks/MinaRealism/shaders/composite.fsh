@@ -94,9 +94,10 @@ void screenSpaceReflection() {
 	vec4 surface = texture(colortex3, texcoord);
 	int material = decodeMaterial(surface.g);
 	float depth = texture(depthtex0, texcoord).r;
-	if (depth >= 1.0 || isEyeInWater != 0) return;
+	// The hand is lit in its gbuffers pass and flagged as such; testing that
+	// rather than a near distance keeps puddles right under a low camera.
+	if (depth >= 1.0 || isEyeInWater != 0 || isPrelit(surface.g)) return;
 	vec3 viewPos = screenToView(texcoord, depth);
-	if (-viewPos.z < 0.5) return; // The hand, not the surface behind it.
 
 	vec3 normal = decodeNormal(texture(colortex2, texcoord).xy);
 	vec3 playerPos = viewToPlayer(viewPos);
