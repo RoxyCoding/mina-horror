@@ -15,6 +15,7 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex8;
 uniform sampler2D depthtex0;
 uniform int biome_precipitation; // 0 none, 1 rain, 2 snow
+uniform float lensRainExposure;   // shaders.properties: 1 under open sky, eased in and out
 
 in vec2 texcoord;
 
@@ -79,7 +80,9 @@ void main() {
 	}
 
 #ifdef LENS_DROPS
-	float lensWet = raining ? wetness * smoothstep(0.3, 0.9, eyeSkyExposure()) : 0.0;
+	// Rain only reaches the lens under open sky; under a roof or a tree the
+	// drops dry off over several seconds.
+	float lensWet = raining ? wetness * lensRainExposure : 0.0;
 	if (lensWet > 0.01) {
 		float aspect = viewWidth / viewHeight;
 		vec2 p = vec2(texcoord.x * aspect, texcoord.y);
