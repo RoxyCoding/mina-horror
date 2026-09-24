@@ -52,3 +52,6 @@ option.CIRRUS_CLOUDS=Cirrus (High Streaks)
 option.CIRRUS_AMOUNT=Cirrus Amount
 option.SUN_MOON_SIZE=Sun and Moon Size
 option.SUN_MOON_SIZE.comment=1.0 is their real size, about half a degree.
+option.REAL_TEXTURES=Photographic Ground
+option.REAL_TEXTURES.comment=Grass, dirt, stone, sand, gravel, snow, deepslate and mud drawn from scans of the real thing, running across block edges without repeating per block.
+option.REAL_NORMAL_STRENGTH=Ground Relief Strength

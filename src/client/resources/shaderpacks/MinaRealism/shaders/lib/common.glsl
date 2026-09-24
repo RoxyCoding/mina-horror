@@ -11,6 +11,15 @@ const int ID_TALL_PLANT_TOP = 22;
 const int ID_STIFF_PLANT = 23;
 const int ID_EMISSIVE = 30;
 const int ID_GLASS = 40;
+const int ID_REAL_GRASS_BLOCK = 50;  // 50-58: photographic ground (lib/realtex.glsl).
+const int ID_REAL_DIRT = 51;
+const int ID_REAL_STONE = 52;
+const int ID_REAL_SAND = 53;
+const int ID_REAL_GRAVEL = 54;
+const int ID_REAL_SNOW = 55;
+const int ID_REAL_DEEPSLATE = 56;
+const int ID_REAL_MUD = 57;
+const int ID_REAL_SNOWY_GRASS_BLOCK = 58;
 
 // Surface models, stored in colortex3.g for the deferred and composite passes.
 // G-buffer layout (alpha is always coverage, so translucent fragments blend

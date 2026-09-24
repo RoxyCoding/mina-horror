@@ -18,6 +18,9 @@
 #include "/lib/clouds.glsl"
 #include "/lib/lighting.glsl"
 #include "/lib/rain.glsl"
+#if defined GB_CHUNK && defined GB_GBUFFER
+#include "/lib/realtex.glsl"
+#endif
 
 uniform sampler2D gtexture;
 uniform sampler2D depthtex1;
@@ -237,10 +240,27 @@ void main() {
 	float footprint = max(length(dFdx(surfaceWorldPos)), length(dFdy(surfaceWorldPos)));
 #endif
 
-#if defined GB_CHUNK && defined GB_GBUFFER && defined TEXTURE_BUMPS
+#if defined GB_CHUNK && defined GB_GBUFFER
 	// Derivatives are taken here, outside the per-material branches.
-	vec3 bumpedNormal = textureBumpNormal(normal, viewToPlayer(viewPos));
-	if (!isFoliageId(blockId)) normal = bumpedNormal;
+	vec3 surfacePlayerPos = viewToPlayer(viewPos);
+	#ifdef REAL_TEXTURES
+	bool realSurface = realMaterialOf(blockId) >= 0;
+	#else
+	bool realSurface = false;
+	#endif
+	#ifdef TEXTURE_BUMPS
+	vec3 bumpedNormal = textureBumpNormal(normal, surfacePlayerPos);
+	if (!isFoliageId(blockId) && !realSurface) normal = bumpedNormal;
+	#endif
+	#ifdef REAL_TEXTURES
+	if (realSurface) {
+		vec3 realAlbedo;
+		vec3 realNormal;
+		realBlockSurface(blockId, surfacePlayerPos + cameraPosition, normal, realFootprint(surfacePlayerPos, normal), vertexColor.rgb, realAlbedo, realNormal);
+		albedo.rgb = realAlbedo;
+		normal = realNormal;
+	}
+	#endif
 #endif
 
 #if defined GB_RAW
