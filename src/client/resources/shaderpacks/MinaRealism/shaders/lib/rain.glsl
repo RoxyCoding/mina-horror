@@ -56,8 +56,11 @@ vec3 lensRunningDrops(vec2 p, float aspect, float density) {
 	vec4 h = hash43(vec3(column, floor(phase), 2.9));
 	if (h.x > density) return vec3(0.0);
 	float local = fract(phase);
-	// Sticking and slipping: progress comes in bursts.
-	local += 0.04 * sin(local * 50.0 + h.z * 6.28);
+	// Sticking and slipping: progress comes in bursts, but never goes back up,
+	// so the drop holds still and then slides on instead of bouncing.
+	const float SLIPS = 8.0;
+	float slip = local * SLIPS + h.z;
+	local = (floor(slip) + smoothstep(0.5, 1.0, fract(slip))) / SLIPS;
 	float dropY = 1.25 - local * 1.5;
 
 	// The path wanders sideways as the drop picks its way down.
