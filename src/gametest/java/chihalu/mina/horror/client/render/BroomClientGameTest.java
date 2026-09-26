@@ -1,10 +1,13 @@
 package chihalu.mina.horror.client.render;
 
+import chihalu.mina.horror.entity.BlackCat;
 import chihalu.mina.horror.entity.Broom;
+import chihalu.mina.horror.registry.MinaHorrorEntities;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -26,17 +29,53 @@ public class BroomClientGameTest implements FabricClientGameTest {
 
 			world.getServer().runCommand("summon minecraft:mannequin 0.5 100 3.6");
 			world.getServer().runCommand("ride @e[type=minecraft:mannequin,limit=1] mount @e[type=mina-horror:broom,limit=1]");
-			context.waitTicks(20);
+			context.waitTicks(4);
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_mannequin_mounting"));
+			context.waitTicks(16);
 			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_mannequin"));
+
+			// carry it past the camera, speeding up and slowing down as the controls do, then through a right turn
+			world.getServer().runCommand("tp @e[type=mina-horror:broom] 5.5 100.5 3.6 90 0");
+			context.waitTicks(10);
+			double speed = 0.0;
+			for (int tick = 0; tick < 16; tick++) {
+				speed += (0.45 - speed) * 0.12;
+				world.getServer().runCommand("execute as @e[type=mina-horror:broom] at @s run tp @s ~" + (-speed) + " ~ ~");
+				context.waitTick();
+			}
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_motion_forward"));
+			for (int tick = 0; tick < 5; tick++) {
+				speed *= 0.88;
+				world.getServer().runCommand("execute as @e[type=mina-horror:broom] at @s run tp @s ~" + (-speed) + " ~ ~");
+				context.waitTick();
+			}
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_motion_release"));
+			for (int tick = 0; tick < 8; tick++) {
+				world.getServer().runCommand("execute as @e[type=mina-horror:broom] at @s run tp @s ~ ~ ~ ~7 ~");
+				context.waitTick();
+			}
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_motion_turn"));
+			context.waitTicks(20);
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_motion_turn_end"));
 			world.getServer().runCommand("kill @e[type=minecraft:mannequin]");
 			context.waitTicks(40); // let its puff of smoke clear
 
 			world.getServer().runCommand("summon mina-horror:broom 0.5 100 8 {Rotation:[0f,0f]}");
 			world.getServer().runCommand("tp @a 0.5 100 8 0 0");
+			// the player's familiar, following them: it should hop on behind when they mount
+			world.getServer().runOnServer(server -> {
+				BlackCat cat = MinaHorrorEntities.BLACK_CAT.create(server.overworld(), EntitySpawnReason.COMMAND);
+				cat.snapTo(2.5, 100.0, 8.0, 0.0F, 0.0F);
+				cat.tame(server.getPlayerList().getPlayers().getFirst());
+				server.overworld().addFreshEntity(cat);
+			});
 			world.getServer().runCommand("ride @p mount @e[type=mina-horror:broom,sort=nearest,limit=1]");
 			context.waitTicks(20);
 			boolean riding = context.computeOnClient(client -> client.player.getVehicle() instanceof Broom);
 			if (!riding) throw new AssertionError("The player did not mount the broom");
+			boolean catAboard = world.getServer().computeOnServer(server -> server.overworld()
+				.getEntitiesOfClass(BlackCat.class, new AABB(-50, 90, -50, 50, 150, 80)).getFirst().getVehicle() instanceof Broom);
+			if (!catAboard) throw new AssertionError("The familiar did not board with its master");
 			context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
 			context.waitTicks(10);
 			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_riding_back"));
@@ -52,6 +91,12 @@ public class BroomClientGameTest implements FabricClientGameTest {
 			context.waitTicks(30);
 			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_flying"));
 			context.getInput().releaseKey(options -> options.keyJump);
+			context.getInput().holdKey(options -> options.keySprint);
+			context.waitTicks(25);
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_boost"));
+			boolean boosting = context.computeOnClient(client -> client.player.isSprinting());
+			if (!boosting) throw new AssertionError("Sprinting did not boost the broom");
+			context.getInput().releaseKey(options -> options.keySprint);
 			context.getInput().releaseKey(options -> options.keyUp);
 			context.waitTicks(20);
 			double endY = context.computeOnClient(client -> client.player.getVehicle().getY());
@@ -71,6 +116,10 @@ public class BroomClientGameTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			boolean dismounted = context.computeOnClient(client -> client.player.getVehicle() == null);
 			if (!dismounted) throw new AssertionError("Sneaking did not dismount");
+			context.waitTicks(2);
+			boolean catOff = world.getServer().computeOnServer(server -> server.overworld()
+				.getEntitiesOfClass(BlackCat.class, new AABB(-50, 90, -50, 150, 250, 180)).getFirst().getVehicle() == null);
+			if (!catOff) throw new AssertionError("The familiar stayed on the broom without its master");
 			context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
 
 			world.getServer().runCommand("kill @e[type=mina-horror:broom]");

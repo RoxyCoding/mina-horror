@@ -40,7 +40,7 @@ public class BroomItemRenderer implements NoDataSpecialModelRenderer {
 	) {
 		poseStack.pushPose();
 		place(poseStack);
-		BroomRenderer.submitMesh(poseStack, submitNodeCollector, lightCoords, overlayCoords, 0.0F, 0.0F);
+		BroomRenderer.submitMesh(poseStack, submitNodeCollector, lightCoords, overlayCoords, 0.0F, 0.0F, 0.0F, 0.0F);
 		poseStack.popPose();
 	}
 

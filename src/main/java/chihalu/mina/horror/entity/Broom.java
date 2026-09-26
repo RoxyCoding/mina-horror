@@ -22,10 +22,12 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A witch's broom that hovers and flies with one rider. Flying works like riding a happy ghast: forward follows the
- * rider's gaze (looking down dives, looking up climbs), sideways strafes, jump rises and sprint speeds up; sneaking
- * dismounts. Nobody aboard, it sinks gently to the ground and hovers there.
- * The client also keeps the visual state: the hover bob, the bank into turns and the lantern's swing.
+ * A witch's broom that hovers and flies with its rider. Flying works like riding a happy ghast: forward follows the
+ * rider's gaze (looking down dives, looking up climbs), back brakes and reverses, sideways strafes, jump rises and
+ * sprint boosts; sneaking dismounts. It bounces off what it flies into, and with a dead rider it loses control and
+ * falls. Nobody aboard, it sinks gently to the ground and hovers there. The rider's black cat, if it is following
+ * them, hops on behind when they mount and off when they get down.
+ * The client keeps the broom's and the rider's motion in {@link #motion}.
  */
 public class Broom extends VehicleEntity {
 	/** Height of the handle's axis (and the seat) above the entity's position. */
@@ -33,22 +35,13 @@ public class Broom extends VehicleEntity {
 	private static final double CRUISE_SPEED = 0.45;
 	private static final double SPRINT_SPEED = 0.85;
 	private static final double RESPONSE = 0.12;
+	private static final double BRAKING = 0.2;
 	private static final double SINK_SPEED = 0.05;
+	/** Where the familiar sits: on the binding behind the rider. */
+	private static final Vec3 FAMILIAR_SEAT = new Vec3(0.0, AXIS_HEIGHT + 0.11, -0.45);
 
-	// client visuals, previous and current tick
-	public float bank;
-	public float bankO;
-	public float pitch;
-	public float pitchO;
-	public float swingForward;
-	public float swingForwardO;
-	public float swingSide;
-	public float swingSideO;
-	private float swingForwardSpeed;
-	private float swingSideSpeed;
-	private @Nullable Vec3 lastPosition;
-	private Vec3 lastVelocity = Vec3.ZERO;
-	private float lastYRot;
+	public final BroomMotion motion = new BroomMotion();
+	private int lastRiderHurtTime;
 
 	public Broom(final EntityType<? extends Broom> type, final Level level) {
 		super(type, level);
@@ -73,18 +66,35 @@ public class Broom extends VehicleEntity {
 				this.drift();
 			}
 
-			this.move(MoverType.SELF, this.getDeltaMovement());
+			Vec3 before = this.getDeltaMovement();
+			this.move(MoverType.SELF, before);
+			double speed = before.horizontalDistance();
+			if (this.horizontalCollision && speed > 0.2) {
+				// light knocks bounce it back, hard ones stop it dead
+				double bounce = speed > 0.55 ? -0.08 : -0.3;
+				this.setDeltaMovement(before.x * bounce, this.getDeltaMovement().y, before.z * bounce);
+			}
 		} else {
 			this.setDeltaMovement(Vec3.ZERO);
 		}
 
 		this.applyEffectsFromBlocks();
 		if (this.level().isClientSide()) {
-			this.animate();
+			this.motion.tick(this);
+		} else {
+			this.tickPassengers();
 		}
 	}
 
 	private void fly(final Player rider) {
+		Vec3 velocity = this.getDeltaMovement();
+		if (rider.isDeadOrDying()) {
+			// out of control: it pitches over and falls
+			this.setDeltaMovement(velocity.x * 0.96, Math.max(velocity.y - 0.03, -1.2), velocity.z * 0.96);
+			this.setYRot(this.getYRot() + 3.0F);
+			return;
+		}
+
 		Vec3 wish = Vec3.ZERO;
 		if (rider.zza != 0.0F) {
 			Vec3 gaze = Vec3.directionFromRotation(rider.getXRot(), rider.getYRot());
@@ -104,8 +114,8 @@ public class Broom extends VehicleEntity {
 		}
 
 		Vec3 target = wish.scale(rider.isSprinting() ? SPRINT_SPEED : CRUISE_SPEED);
-		Vec3 velocity = this.getDeltaMovement();
-		this.setDeltaMovement(velocity.add(target.subtract(velocity).scale(RESPONSE)));
+		boolean braking = rider.zza < 0.0F && velocity.dot(this.getLookAngle()) > 0.1;
+		this.setDeltaMovement(velocity.add(target.subtract(velocity).scale(braking ? BRAKING : RESPONSE)));
 		// the broom swings round after its rider's gaze
 		this.setYRot(this.getYRot() + Mth.wrapDegrees(rider.getYRot() - this.getYRot()) * 0.35F);
 	}
@@ -116,37 +126,57 @@ public class Broom extends VehicleEntity {
 		this.setDeltaMovement(velocity.x * 0.85, fall, velocity.z * 0.85);
 	}
 
-	/** Bank into turns, nose up while climbing, and swing the lantern like a pendulum hung from the bow. */
-	private void animate() {
-		this.bankO = this.bank;
-		this.pitchO = this.pitch;
-		this.swingForwardO = this.swingForward;
-		this.swingSideO = this.swingSide;
-		Vec3 position = this.position();
-		Vec3 velocity = this.lastPosition == null ? Vec3.ZERO : position.subtract(this.lastPosition);
-		Vec3 acceleration = velocity.subtract(this.lastVelocity);
-		this.lastPosition = position;
-		this.lastVelocity = velocity;
-		float turn = Mth.wrapDegrees(this.getYRot() - this.lastYRot);
-		this.lastYRot = this.getYRot();
+	/** Server: the familiar boards with its master and leaves with them; hits on the rider are shown to all. */
+	private void tickPassengers() {
+		Player rider = this.getControllingPassenger() instanceof Player player ? player : null;
+		for (Entity passenger : this.getPassengers()) {
+			if (passenger instanceof BlackCat cat && rider == null) {
+				cat.stopRiding();
+				cat.setInSittingPose(cat.isOrderedToSit());
+			}
+		}
 
-		this.bank += (Mth.clamp(turn * 1.6F, -22.0F, 22.0F) - this.bank) * 0.2F;
-		this.pitch += ((float) Mth.clamp(-velocity.y * 40.0, -18.0, 18.0) - this.pitch) * 0.2F;
+		if (rider != null && this.getPassengers().size() == 1 && this.tickCount % 10 == 0) {
+			for (BlackCat cat : this.level().getEntitiesOfClass(BlackCat.class, this.getBoundingBox().inflate(6.0))) {
+				if (cat.isOwnedBy(rider) && !cat.isOrderedToSit() && !cat.isPassenger() && cat.isAlive() && cat.startRiding(this)) {
+					cat.setInSittingPose(true);
+					break;
+				}
+			}
+		}
 
-		float yaw = this.getYRot() * Mth.DEG_TO_RAD;
-		double forward = -acceleration.x * Mth.sin(yaw) + acceleration.z * Mth.cos(yaw);
-		double left = acceleration.x * Mth.cos(yaw) + acceleration.z * Mth.sin(yaw);
-		// stiffness 0.25/tick^2 (a period of about 0.6 s); an acceleration a holds it at a/g off the vertical
-		this.swingForwardSpeed += (float) (-0.25F * this.swingForward + 3.1 * forward) - 0.15F * this.swingForwardSpeed;
-		this.swingSideSpeed += (float) (-0.25F * this.swingSide - 3.1 * left) - 0.15F * this.swingSideSpeed;
-		this.swingForward = Mth.clamp(this.swingForward + this.swingForwardSpeed, -0.9F, 0.9F);
-		this.swingSide = Mth.clamp(this.swingSide + this.swingSideSpeed, -0.9F, 0.9F);
+		LivingEntity hurt = this.getFirstPassenger() instanceof LivingEntity living ? living : null;
+		int hurtTime = hurt == null ? 0 : hurt.hurtTime;
+		if (hurt != null && hurtTime > this.lastRiderHurtTime) {
+			// hurtDir points at the damage, relative to the rider's heading (0 on its left, 90 ahead)
+			float side = Mth.wrapDegrees(hurt.getHurtDir() - 90.0F + hurt.getYRot() - this.getYRot());
+			byte event = Math.abs(side) < 45.0F ? BroomMotion.HIT_FRONT : Math.abs(side) > 135.0F ? BroomMotion.HIT_BACK
+				: side < 0.0F ? BroomMotion.HIT_LEFT : BroomMotion.HIT_RIGHT;
+			this.level().broadcastEntityEvent(this, event);
+		}
+
+		this.lastRiderHurtTime = hurtTime;
+	}
+
+	@Override
+	public void handleEntityEvent(final byte id) {
+		if (id >= BroomMotion.HIT_FRONT && id <= BroomMotion.HIT_RIGHT) {
+			this.motion.hit(id);
+		} else {
+			super.handleEntityEvent(id);
+		}
 	}
 
 	@Override
 	protected void checkFallDamage(final double ya, final boolean onGround, final BlockState onState, final BlockPos pos) {
 		// it flies: landing, however fast, hurts neither broom nor rider
 		this.resetFallDistance();
+	}
+
+	@Override
+	public boolean canSprint() {
+		// the rider's sprint is the broom's boost
+		return true;
 	}
 
 	@Override
@@ -170,7 +200,9 @@ public class Broom extends VehicleEntity {
 
 	@Override
 	protected boolean canAddPassenger(final Entity passenger) {
-		return this.getPassengers().isEmpty();
+		// a rider, and then perhaps their familiar
+		return this.getPassengers().isEmpty()
+			|| passenger instanceof BlackCat && this.getPassengers().size() == 1 && this.getFirstPassenger() instanceof Player;
 	}
 
 	@Override
@@ -180,6 +212,10 @@ public class Broom extends VehicleEntity {
 
 	@Override
 	protected Vec3 getPassengerAttachmentPoint(final Entity passenger, final EntityDimensions dimensions, final float scale) {
+		if (passenger instanceof BlackCat) {
+			return FAMILIAR_SEAT.yRot(-this.getYRot() * Mth.DEG_TO_RAD);
+		}
+
 		// a sitting rider's thighs rest on top of the handle
 		return new Vec3(0.0, AXIS_HEIGHT + 0.02, 0.0);
 	}

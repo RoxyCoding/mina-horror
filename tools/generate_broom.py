@@ -10,11 +10,12 @@ Writes to src/main/resources/assets/mina-horror/:
   textures/item/broom.png     16 px icon (particles)
 With --obj DIR it also writes broom.obj and broom.mtl to DIR, for a look in a 3D tool.
 
-Mesh layout: int magic 'BROM', floats x y z of the lantern's hook, then four groups (solid, lantern, flame,
-glass), each an int quad count followed by 4 vertices per quad of
+Mesh layout: int magic 'BROM', floats x y z of the lantern's hook, then five groups (solid, lantern, flame,
+glass, bristle), each an int quad count followed by 4 vertices per quad of
   x y z  nx ny nz  u v    (floats; blocks, uv 0..1)
 Model space: the seat on the handle axis at the origin, front towards +z, up +y, the broom's right side
-towards -x. The lantern, flame and glass groups hang from the hook and swing about it.
+towards -x. The lantern, flame and glass groups hang from the hook and swing about it; the bristle group is
+kept apart so it can stream back at speed.
 
 Usage: python tools/generate_broom.py [--obj DIR]   (needs numpy and Pillow)
 """
@@ -32,7 +33,7 @@ TEX = 1024
 MM = 0.0015                 # blocks per millimetre: the 2.25 m broom is drawn 3.4 blocks long, as long beside
                             # its rider as in the art
 MAGIC = 0x42524F4D
-GROUPS = ('solid', 'lantern', 'flame', 'glass')
+GROUPS = ('solid', 'lantern', 'flame', 'glass', 'bristle')
 
 # Material sheet cells (x, y, w, h) in px. u runs across the width (once around a round part); v runs down.
 CELL = {
@@ -407,7 +408,7 @@ def bristles(mesh):
     core = [P_(CUFF_S[1] + 0.1, 71.0, 'bristle', v=0.0)]
     for k, (s, r) in enumerate(((460, 64), (510, 52), (550, 36), (580, 20), (600, 8), (610, 0))):
         core.append(P_(float(s), float(r), 'bristle', 0 < k < 5, v=0.1 + 0.08 * k))
-    lathe(mesh, 'solid', core, (0.0, 0.0, 0.0), (0.0, 0.0, -1.0), (1.0, 0.0, 0.0), seg=32)
+    lathe(mesh, 'bristle', core, (0.0, 0.0, 0.0), (0.0, 0.0, -1.0), (1.0, 0.0, 0.0), seg=32)
 
     rows = 18
     ts = (1 - np.cos(math.pi * np.arange(rows + 1) / rows)) / 2
@@ -443,7 +444,7 @@ def bristles(mesh):
             def section(i, phi, width=width, thick=thick):
                 return width[i] / 2 * math.cos(phi), thick[i] / 2 * math.sin(phi)
 
-            tube(mesh, 'solid', 'bristle', C, Wd, N, section, ts, 6, u=(u0, u0 + 0.18))
+            tube(mesh, 'bristle', 'bristle', C, Wd, N, section, ts, 6, u=(u0, u0 + 0.18))
 
     # stray fibres lifting out of the fan
     for k in range(24):
@@ -465,7 +466,7 @@ def bristles(mesh):
             return rad[i] * math.cos(phi), rad[i] * math.sin(phi)
 
         u0 = rng.uniform(0, 0.95)
-        tube(mesh, 'solid', 'bristle', C, A, B, fibre, t, 4, u=(u0, u0 + 0.04))
+        tube(mesh, 'bristle', 'bristle', C, A, B, fibre, t, 4, u=(u0, u0 + 0.04))
 
 
 def bow_frame():

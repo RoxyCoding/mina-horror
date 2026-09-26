@@ -2,6 +2,7 @@ package chihalu.mina.horror.client.render;
 
 import chihalu.mina.horror.MinaHorror;
 import chihalu.mina.horror.entity.BlackCat;
+import chihalu.mina.horror.entity.Broom;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,17 @@ public class BlackCatRenderer extends MobRenderer<BlackCat, BlackCatRenderState,
 	public void extractRenderState(final BlackCat entity, final BlackCatRenderState state, final float partialTicks) {
 		super.extractRenderState(entity, state, partialTicks);
 		state.isSitting = entity.isInSittingPose();
+		state.broom = entity.getVehicle() instanceof Broom broom ? broom : null;
+		state.partialTick = partialTicks;
+	}
+
+	@Override
+	protected void setupRotations(final BlackCatRenderState state, final PoseStack poseStack, final float bodyRot, final float entityScale) {
+		super.setupRotations(state, poseStack, bodyRot, entityScale);
+		if (state.broom != null) {
+			// riding behind its master: carried with the broom about the seat, just ahead of and below it
+			BroomRenderer.followBroom(poseStack, state.broom, -0.11F, -0.45F, state.partialTick);
+		}
 	}
 
 	public static class EmptyModel extends EntityModel<BlackCatRenderState> {

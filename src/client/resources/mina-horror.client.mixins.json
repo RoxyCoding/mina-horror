@@ -9,7 +9,9 @@
 		"SodiumTreeFaceCullingMixin",
 		"SodiumTreeSectionVisibilityMixin",
 		"SodiumTerrainLightMixin",
-		"IrisFlashlightUniformsMixin"
+		"IrisFlashlightUniformsMixin",
+		"BroomRiderRotationsMixin",
+		"BroomRiderModelMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

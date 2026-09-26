@@ -34,6 +34,7 @@ public final class MinaHorrorEntities {
 		EntityType.Builder.<Broom>of(Broom::new, MobCategory.MISC)
 			.sized(0.9F, 0.7F)
 			.clientTrackingRange(10)
+			.updateInterval(1)                        // others' brooms move every tick, for their motion
 			.build(BROOM_KEY)
 	);
 
