@@ -9,6 +9,7 @@ public class SlopeClientGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
         var world=context.worldBuilder().create();
         try {
+            chihalu.mina.horror.client.render.tree.VillageTimberCheck.run(context,world);
             context.runOnClient(client -> client.gui.setScreen(new net.minecraft.client.gui.screens.options.OptionsScreen(null,client.options)));
             context.clickScreenButton("mina.terrain.title");
             context.runOnClient(client -> {

@@ -115,6 +115,17 @@ public final class NaturalTrees {
 		if (species == null) return null;
 		List<BlockPos> logs = floodLogs(level, start, species);
 		if (logs == null) return null;
+		// A tree touching a building is conservatively left vanilla, rather than reshaping its timber.
+		for (BlockPos log : logs) for (Direction direction : DIRECTIONS) {
+			BlockState adjacent = level.getBlockState(log.relative(direction));
+			Block block = adjacent.getBlock();
+			if (adjacent.is(BlockTags.PLANKS) || block instanceof net.minecraft.world.level.block.StairBlock
+					|| block instanceof net.minecraft.world.level.block.SlabBlock
+					|| block instanceof net.minecraft.world.level.block.DoorBlock
+					|| block instanceof net.minecraft.world.level.block.TrapDoorBlock
+					|| block instanceof net.minecraft.world.level.block.FenceBlock
+					|| block instanceof net.minecraft.world.level.block.WallBlock) return null;
+		}
 		BlockPos root = logs.getFirst();
 		for (BlockPos log : logs) {
 			if (log.getY() < root.getY() || log.getY() == root.getY() && (log.getX() < root.getX() || log.getX() == root.getX() && log.getZ() < root.getZ())) root = log;

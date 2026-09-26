@@ -192,7 +192,9 @@ public final class SmoothGround {
 		for (int dy = -1; dy >= -span - 1; dy--) {
 			BlockState state = level.getBlockState(cursor.set(x, y + dy, z));
 			if (isGround(state)) return dy == span ? NONE : y + dy + 1;
-			if (!isOpen(state)) return NONE;
+			// Torches and other small things stand on the floor rather than hide it; seen from the column
+			// they stand in they cover the ground, so the neighbours must find the same height beneath them.
+			if (!isOpen(state) && state.isSolid()) return NONE;
 		}
 		return NONE;
 	}

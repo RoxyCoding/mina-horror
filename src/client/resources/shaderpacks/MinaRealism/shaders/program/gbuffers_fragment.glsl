@@ -87,8 +87,8 @@ vec3 waterWaveNormal(vec3 worldPos, float footprint, float roughness) {
 }
 
 // Light scattered inside the water body, with alpha from how much of the
-// bottom the water hides. Suspended particles keep even shallow water from
-// looking like glass; red is absorbed within a few blocks.
+// bottom the water hides. Shallow water is nearly clear; red is absorbed
+// within a few blocks, so depth turns it blue.
 vec4 shadeWaterVolume(vec3 tint, vec3 playerPos, vec2 light, float dither) {
 	vec2 uv = gl_FragCoord.xy / vec2(viewWidth, viewHeight);
 	float bottomDepth = texture(depthtex1, uv).r;
@@ -98,7 +98,7 @@ vec4 shadeWaterVolume(vec3 tint, vec3 playerPos, vec2 light, float dither) {
 		thickness = alongView * length(viewPos) / max(-viewPos.z, 1e-3);
 	}
 	vec3 transmittance = exp(-(WATER_ABSORPTION + WATER_SCATTERING) * thickness);
-	float alpha = clamp(1.0 - dot(transmittance, vec3(0.25, 0.45, 0.3)), 0.12, 0.98);
+	float alpha = clamp(1.0 - dot(transmittance, vec3(0.25, 0.45, 0.3)), 0.04, 0.96);
 
 	vec3 sunDir = worldSunDir();
 	vec3 lightDir = worldLightDir();
@@ -111,7 +111,7 @@ vec4 shadeWaterVolume(vec3 tint, vec3 playerPos, vec2 light, float dither) {
 	// The scattering happens throughout the column, where the light is dimmer.
 	inLight *= exp(-WATER_DOWNWELLING * min(thickness, 8.0) * 0.5);
 	// Deep water shows the colour of what it scattered, bluer where red is gone.
-	vec3 waterAlbedo = tint * mix(vec3(0.02, 0.07, 0.09), vec3(0.15), transmittance);
+	vec3 waterAlbedo = tint * mix(vec3(0.01, 0.06, 0.11), vec3(0.12), transmittance);
 	return vec4(waterAlbedo / PI * inLight, alpha);
 }
 

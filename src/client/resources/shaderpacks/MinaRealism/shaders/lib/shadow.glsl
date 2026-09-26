@@ -27,6 +27,8 @@ uniform sampler2DShadow shadowtex0; // Everything, including water and glass.
 uniform sampler2DShadow shadowtex1; // Opaque casters only.
 uniform sampler2D shadowcolor0;     // Colour of the nearest translucent caster.
 uniform sampler2D shadowcolor1;     // Shadow-map depth of the water surface (r) and the nearest caster (g), 1 where there is none.
+uniform mat4 shadowModelViewInverse;
+uniform mat4 shadowProjectionInverse;
 
 vec2 vogelDisk(int index, int count, float rotation) {
 	float radius = sqrt((float(index) + 0.5) / float(count));
@@ -40,11 +42,58 @@ float shadowDepthToBlocks() {
 	return 2.0 / SHADOW_DEPTH_SCALE / abs(shadowProjection[2][2]);
 }
 
-// Blocks of water the light crosses before reaching a shadow-map position.
-float waterPathLength(vec3 coord) {
-	float surface = texture(shadowcolor1, coord.xy).r;
-	if (surface >= coord.z) return 0.0;
-	return (coord.z - surface) * shadowDepthToBlocks();
+// Water surface (r) and nearest caster (g) depths of one shadow-map texel.
+vec2 shadowDepths(vec2 uv) {
+	ivec2 size = textureSize(shadowcolor1, 0);
+	return texelFetch(shadowcolor1, clamp(ivec2(uv * vec2(size)), ivec2(0), size - 1), 0).rg;
+}
+
+// Leaves and anything else over the water hide its surface from the shadow map.
+// The surface is level, so its height is taken from the nearest water texel
+// around, found at a slant beside the point, and the light's path down to the
+// point is measured from that height. 0 where no water is found within reach.
+float hiddenWaterPathLength(vec3 playerPos, float rotation) {
+	vec3 lightDir = worldLightDir();
+	if (lightDir.y < 0.05) return 0.0;
+	for (int i = 0; i < 8; i++) {
+		float angle = rotation + float(i) * 2.39996323;
+		vec3 clipPos = shadowClipPos(playerPos + vec3(cos(angle), 0.0, sin(angle)) * (1.0 + float(i) * 0.75));
+		float surface = shadowDepths(distortShadow(clipPos).xy * 0.5 + 0.5).r;
+		if (surface >= 1.0) continue;
+		clipPos.z = (surface * 2.0 - 1.0) / SHADOW_DEPTH_SCALE;
+		vec4 viewPos = shadowProjectionInverse * vec4(clipPos, 1.0);
+		float level = (shadowModelViewInverse * vec4(viewPos.xyz / viewPos.w, 1.0)).y;
+		return max(level - playerPos.y, 0.0) / lightDir.y;
+	}
+	return 0.0;
+}
+
+// Blocks of water the light crosses before reaching a shadow-map position,
+// blended over the four nearest texels. Each texel is judged on its own first:
+// blending the depths instead would mix a water texel with an empty neighbour
+// (1), lift the surface above the point and leave a lit rim along every shadow.
+float waterPathLength(vec3 coord, vec3 playerPos, float rotation) {
+	ivec2 size = textureSize(shadowcolor1, 0);
+	vec2 texel = coord.xy * vec2(size) - 0.5;
+	ivec2 base = ivec2(floor(texel));
+	vec2 f = texel - vec2(base);
+	// Only a point with something above it can have its water hidden; open ground stays dry.
+	float covered = coord.z - 0.5 / shadowDepthToBlocks();
+	float hidden = -1.0;
+	float result = 0.0;
+	for (int i = 0; i < 4; i++) {
+		ivec2 offset = ivec2(i & 1, i >> 1);
+		vec2 depths = texelFetch(shadowcolor1, clamp(base + offset, ivec2(0), size - 1), 0).rg;
+		float path = 0.0;
+		if (depths.r < 1.0) path = max(coord.z - depths.r, 0.0) * shadowDepthToBlocks();
+		else if (depths.g < covered) {
+			if (hidden < 0.0) hidden = hiddenWaterPathLength(playerPos, rotation);
+			path = hidden;
+		}
+		vec2 weight = mix(1.0 - f, f, vec2(offset));
+		result += path * weight.x * weight.y;
+	}
+	return result;
 }
 
 // The sun and the moon are discs about half a degree across, so a shadow is
@@ -52,6 +101,8 @@ float waterPathLength(vec3 coord) {
 // Scaled up from the true 0.0046 per block for the haze and the swaying
 // leaves that soften real shadows further.
 const float PENUMBRA_PER_BLOCK = 0.012;
+// Blocks of blur per block of water between the surface and the shadowed point.
+const float WATER_SHADOW_BLUR = 0.5;
 
 // Radius of the penumbra at a shadow-map position, in shadow-map units.
 //   blocksToUV  shadow-map units per block at this position
@@ -87,13 +138,17 @@ vec3 sampleShadow(vec3 playerPos, vec3 offsetDir, float dither, float fallback, 
 	if (fade >= 1.0 || abs(clipPos.z) >= 1.0 / SHADOW_DEPTH_SCALE) return vec3(fallback);
 
 	vec3 coord = distortShadow(clipPos) * 0.5 + 0.5;
-	waterDepth = waterPathLength(coord) * (1.0 - fade);
-	coord.z -= 0.00004;
-
 	float rotation = dither * 6.2831853;
 	// clipPos spans shadowDistance blocks per unit before the distortion
 	// magnifies it by 1 / distortion.
-	float radius = penumbraRadius(coord, 0.5 / (shadowDistance * distortion), rotation);
+	float blocksToUV = 0.5 / (shadowDistance * distortion);
+	waterDepth = waterPathLength(coord, playerPos, rotation) * (1.0 - fade);
+	coord.z -= 0.00004;
+
+	float radius = penumbraRadius(coord, blocksToUV, rotation);
+	// Water scatters the light a little aside on its way down, so shadows under it
+	// blur with the depth of water crossed.
+	radius = min(radius + waterDepth * WATER_SHADOW_BLUR * blocksToUV, 64.0 / float(shadowMapResolution));
 	float opaque = 0.0;
 	for (int i = 0; i < SHADOW_SAMPLES; i++) {
 		opaque += texture(shadowtex1, vec3(coord.xy + vogelDisk(i, SHADOW_SAMPLES, rotation) * radius, coord.z));
@@ -105,7 +160,10 @@ vec3 sampleShadow(vec3 playerPos, vec3 offsetDir, float dither, float fallback, 
 		float clear = texture(shadowtex0, coord);
 		vec4 caster = texture(shadowcolor0, coord.xy);
 		vec3 tint = mix(vec3(1.0), caster.rgb, caster.a);
-		light *= mix(tint, vec3(1.0), clear);
+		// Only a translucent caster (in shadowtex0 but not shadowtex1) tints. An opaque one's colour is
+		// never seen; tinting with it would print its sharp outline over the soft penumbra.
+		float translucent = max(texture(shadowtex1, coord) - clear, 0.0);
+		light *= mix(vec3(1.0), tint, translucent);
 	}
 	return mix(light, vec3(fallback), fade);
 }

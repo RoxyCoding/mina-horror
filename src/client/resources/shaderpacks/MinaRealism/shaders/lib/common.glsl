@@ -198,10 +198,10 @@ vec3 cosineHemisphere(vec3 n, vec2 xi) {
 	return normalize(tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(1.0 - xi.y, 0.0)));
 }
 
-// Water optics per block. Pure water absorbs red within a few blocks; suspended
-// particles scatter all colours and make lakes look turbid rather than glassy.
-const vec3 WATER_ABSORPTION = vec3(0.35, 0.07, 0.04);
-const float WATER_SCATTERING = 0.14;
+// Water optics per block. Pure water absorbs red within a few blocks; a few
+// suspended particles scatter all colours, little enough to keep lakes clear.
+const vec3 WATER_ABSORPTION = vec3(0.30, 0.05, 0.025);
+const float WATER_SCATTERING = 0.04;
 // Sunlight going down loses a little more than pure absorption to back-scattering.
 const vec3 WATER_DOWNWELLING = WATER_ABSORPTION + 0.03;
 

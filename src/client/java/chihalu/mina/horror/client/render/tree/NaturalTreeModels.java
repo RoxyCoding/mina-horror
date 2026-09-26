@@ -117,6 +117,11 @@ public final class NaturalTreeModels {
 		public void emitQuads(QuadEmitter emitter, BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, Predicate<Direction> cullTest) {
 			// Blocks of a recognised whole tree draw their share of it (log blocks may carry leaf cards too).
 			NaturalTrees.Hit tree = NaturalTrees.handles(state) ? trees.find(level, pos, state) : null;
+			// Beams, pillars, stripped wood and isolated logs keep the original block model.
+			if (tree == null && profile.kind != 1) {
+				wrapped.emitQuads(emitter, level, pos, state, random, cullTest);
+				return;
+			}
 			Mesh mesh = tree != null ? tree.tree().mesh(tree.key(), this::bakeFaces) : meshes.computeIfAbsent(shape(level, pos, state), this::bake);
 			// Colored photographic leaves receive a gentle biome tint instead of being tinted twice. Whole trees may mix
 			// leaf kinds, so there the baked tag decides per quad.
