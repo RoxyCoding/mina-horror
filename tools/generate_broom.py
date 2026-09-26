@@ -50,7 +50,6 @@ TILE_MM = {'wood': 220.0, 'gold': 40.0, 'cord': 30.0, 'wrap': 60.0, 'ribbon': 60
 HANDLE = (-215.0, 1030.0)   # z of its hidden ends, inside the wrap and inside the ferrule
 FERRULE_Z = 1006.0
 BOW_Z = 830.0               # clear of a sitting rider's feet (0.75 blocks ahead of the seat)
-KNOTS = ((140.0, 5.0, 2.6), (262.0, 1.2, 3.6), (575.0, 3.9, 3.2))   # z, angle, height in mm
 WRAP_S = (180.0, 365.0)     # the binding, measured backwards from the seat
 CUFF_S = (365.0, 419.5)
 HOOP_S, HOOP_R, HOOP_T = 462.0, 81.5, 4.3
@@ -319,16 +318,11 @@ def base_radius(z):
 
 
 def handle_radius(z, theta):
-    r = base_radius(z)
-    for kz, kt, height in KNOTS:
-        d = (theta - kt + math.pi) % (2 * math.pi) - math.pi
-        r += height * math.exp(-((z - kz) / 13.0) ** 2 - (d / 0.5) ** 2)
-    return r * (1 + 0.022 * math.cos(2 * (theta - 0.7 + z * 0.0021)))
+    return base_radius(z) * (1 + 0.022 * math.cos(2 * (theta - 0.7 + z * 0.0021)))
 
 
 def handle(mesh):
     zs = [np.arange(HANDLE[0], HANDLE[1] + 1e-6, 8.0), np.arange(BOW_Z - 200, BOW_Z + 200, 4.0)]
-    zs += [np.arange(kz - 42, kz + 42, 3.0) for kz, _, _ in KNOTS]
     zs = np.unique(np.round(np.concatenate(zs), 3))
     C = np.array([handle_centre(z) for z in zs])
     _, A, B = frames(C)
