@@ -1,9 +1,10 @@
 #version 330 compatibility
 #include "/lib/settings.glsl"
 #include "/lib/common.glsl"
+#include "/lib/flashlight.glsl"
 
 // Eye adaptation: meters the scene and eases the exposure towards it.
-// The result is kept across frames in colortex5.
+// The result is kept across frames in colortex5: r exposure, g whether a flashlight was on.
 
 const bool colortex0MipmapEnabled = true;
 
@@ -36,12 +37,18 @@ void main() {
 	float average = exp(logSum / weightSum);
 	float target = clamp(MIDDLE_GREY / average, MIN_EXPOSURE, MAX_EXPOSURE);
 
-	float previous = texelFetch(colortex5, ivec2(0), 0).r;
+	vec2 previousState = texelFetch(colortex5, ivec2(0), 0).rg;
+	float previous = previousState.r;
+	bool flashlight = anyFlashlight();
+	// Switching a flashlight on in the dark would otherwise blow the scene out for a moment while the
+	// night-adapted exposure catches up; meter the lit scene at once instead. Switching it off keeps
+	// the slow adaptation to darkness.
+	bool switchedOn = flashlight && previousState.g < 0.5;
 	float exposure = target;
-	if (previous > 0.0 && previous < 1e4) {
+	if (previous > 0.0 && previous < 1e4 && !switchedOn) {
 		// Eyes adjust to bright light faster than to darkness.
 		float speed = target < previous ? 3.0 : 1.2;
 		exposure = exp(mix(log(previous), log(target), 1.0 - exp(-frameTime * speed)));
 	}
-	outExposure = vec4(exposure, 0.0, 0.0, 1.0);
+	outExposure = vec4(exposure, flashlight ? 1.0 : 0.0, 0.0, 1.0);
 }
