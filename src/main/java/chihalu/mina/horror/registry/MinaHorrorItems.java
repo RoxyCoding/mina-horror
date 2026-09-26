@@ -1,6 +1,7 @@
 package chihalu.mina.horror.registry;
 
 import chihalu.mina.horror.MinaHorror;
+import chihalu.mina.horror.item.FlashlightItem;
 import chihalu.mina.horror.item.TerrainWandItem;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
@@ -29,6 +30,14 @@ public final class MinaHorrorItems {
 		new TerrainWandItem(new Item.Properties().stacksTo(1).setId(TERRAIN_WAND_KEY))
 	);
 
+	public static final ResourceKey<Item> FLASHLIGHT_KEY = ResourceKey.create(Registries.ITEM, MinaHorror.id("flashlight"));
+
+	public static final Item FLASHLIGHT = Registry.register(
+		BuiltInRegistries.ITEM,
+		FLASHLIGHT_KEY,
+		new FlashlightItem(new Item.Properties().stacksTo(1).setId(FLASHLIGHT_KEY))
+	);
+
 	private MinaHorrorItems() {
 	}
 
@@ -38,6 +47,9 @@ public final class MinaHorrorItems {
 				output.insertAfter(Items.CAT_SPAWN_EGG, BLACK_CAT_SPAWN_EGG);
 			});
 		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
-			.register(output -> output.accept(TERRAIN_WAND));
+			.register(output -> {
+				output.accept(TERRAIN_WAND);
+				output.accept(FLASHLIGHT);
+			});
 	}
 }

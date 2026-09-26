@@ -1,5 +1,6 @@
 package chihalu.mina.horror;
 
+import chihalu.mina.horror.registry.MinaHorrorComponents;
 import chihalu.mina.horror.registry.MinaHorrorEntities;
 import chihalu.mina.horror.registry.MinaHorrorItems;
 import chihalu.mina.horror.terrain.SmoothGround;
@@ -25,6 +26,7 @@ public class MinaHorror implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		MinaHorrorComponents.init();
 		MinaHorrorEntities.init();
 		MinaHorrorItems.init();
 		SmoothGround.init();

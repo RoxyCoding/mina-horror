@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "G",
+    "R",
+    "I"
+  ],
+  "key": {
+    "G": "minecraft:glass_pane",
+    "R": "minecraft:redstone_torch",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "count": 1,
+    "id": "mina-horror:flashlight"
+  }
+}
