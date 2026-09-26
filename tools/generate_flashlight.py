@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'src/main/resources/assets/mina-horror')
 TEX = 1024
-SEG = 72                      # facets around the axis
+SEG = 96                      # facets around the axis
 SCALE = 0.875 / 140.0         # blocks per millimetre: the 140 mm torch is 14 px long
 CLIP_ANGLE = math.pi / 2      # pocket clip on +y
 RNG = np.random.default_rng(413)
@@ -59,7 +59,17 @@ def crenellation(count, depth, width, phase):
     return dz
 
 
-TAIL = crenellation(3, 1.4, 0.34, CLIP_ANGLE + math.pi / 3)
+def castellation(count, depth, width, edge, phase):
+    """z offset of a castellated rim: square notches `width` (fraction of a period) wide, edges rounded over `edge`."""
+    def dz(theta):
+        t = ((theta - phase) * count / (2 * math.pi)) % 1.0
+        x = (width / 2 + edge - abs(t - 0.5)) / (2 * edge)
+        x = min(max(x, 0.0), 1.0)
+        return depth * x * x * (3 - 2 * x)
+    return dz
+
+
+TAIL = castellation(6, 1.6, 0.45, 0.06, CLIP_ANGLE + math.pi / 6)
 BEZEL = crenellation(5, -1.5, 0.36, 0.0)
 
 
@@ -168,7 +178,7 @@ def body_profile():
         p.append(P(2.2 - 1.3 * math.cos(a), 8.6 * math.sin(a) / math.sin(math.pi / 2 * 0.93), 'rubber', True))
     p[-1] = P(2.2, 8.6, 'rubber')
     p += [P(2.6, 8.8, 'dark'), P(2.6, 9.6, 'anod'),
-          # tail rim with three shallow thumb notches, anodising worn off the edges only
+          # castellated tail rim, six teeth, anodising worn off the edges only
           P(0.35, 9.6, 'worn', dz=TAIL), P(0.0, 9.95, 'anod', dz=TAIL), P(0.0, 12.6, 'worn', dz=TAIL),
           P(0.4, 13.0, 'anod', dz=TAIL),
           P(7.0, 13.0, 'anod'), P(7.2, 12.4, 'anod'), P(7.8, 12.4, 'worn'), P(8.0, 13.0, 'knurl'),
