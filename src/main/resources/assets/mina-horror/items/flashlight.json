@@ -1,9 +1,6 @@
 {
   "model": {
-    "type": "minecraft:special",
-    "base": "mina-horror:item/flashlight",
-    "model": {
-      "type": "mina-horror:flashlight"
-    }
+    "type": "mina-horror:flashlight",
+    "base": "mina-horror:item/flashlight"
   }
 }

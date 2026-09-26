@@ -8,7 +8,8 @@
 		"TreeSectionVisibilityMixin",
 		"SodiumTreeFaceCullingMixin",
 		"SodiumTreeSectionVisibilityMixin",
-		"SodiumTerrainLightMixin"
+		"SodiumTerrainLightMixin",
+		"IrisFlashlightUniformsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

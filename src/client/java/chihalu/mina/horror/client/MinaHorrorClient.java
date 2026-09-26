@@ -1,7 +1,7 @@
 package chihalu.mina.horror.client;
 
 import chihalu.mina.horror.client.render.BlackCatRenderer;
-import chihalu.mina.horror.client.render.FlashlightRenderer;
+import chihalu.mina.horror.client.render.FlashlightItemModel;
 import chihalu.mina.horror.client.render.terrain.SmoothTerrain;
 import chihalu.mina.horror.client.render.tree.NaturalTreeModels;
 import chihalu.mina.horror.client.shader.BundledShaderPack;
@@ -16,7 +16,7 @@ public class MinaHorrorClient implements ClientModInitializer {
 		NaturalTreeModels.register();
 		SmoothTerrain.register();
 		BundledShaderPack.install();
-		FlashlightRenderer.register();
+		FlashlightItemModel.register();
 		EntityRenderers.register(MinaHorrorEntities.BLACK_CAT, BlackCatRenderer::new);
 	}
 }

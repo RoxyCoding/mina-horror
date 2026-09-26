@@ -9,6 +9,12 @@ uniform int heldItemId;
 uniform int heldItemId2;
 uniform vec3 eyePosition;
 uniform vec3 playerLookVector;
+// From the mod (FlashlightBeam): where each hand's lens was last drawn and where it points,
+// in view space; w is 0 when unknown (no mod, hand hidden), then the lamp is guessed below.
+uniform vec4 minaFlashlightPos0;
+uniform vec4 minaFlashlightPos1;
+uniform vec4 minaFlashlightDir0;
+uniform vec4 minaFlashlightDir1;
 
 const int ITEM_FLASHLIGHT_ON = 1001;
 // Cool white next to the torches; auto exposure keeps it reading as a daylight LED.
@@ -34,6 +40,9 @@ bool anyFlashlight() {
 
 // Lens position, relative to the camera, of the flashlight in the given hand.
 vec3 flashlightOrigin(int hand) {
+	vec4 lens = hand == 0 ? minaFlashlightPos0 : minaFlashlightPos1;
+	if (lens.w > 0.5) return viewToPlayer(lens.xyz);
+	// Guess: held in front of the chest on that hand's side.
 	vec3 look = normalize(playerLookVector);
 	vec3 right = normalize(cross(look, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0));
 	vec3 up = cross(right, look);
@@ -47,8 +56,9 @@ vec3 flashlightOrigin(int hand) {
 // leaves the LED without touching the reflector.
 vec3 flashlightLight(vec3 pos, int hand, out vec3 toLight) {
 	vec3 origin = flashlightOrigin(hand);
+	vec4 pointing = hand == 0 ? minaFlashlightDir0 : minaFlashlightDir1;
 	vec3 aim = eyePosition - cameraPosition + normalize(playerLookVector) * FLASHLIGHT_AIM;
-	vec3 axis = normalize(aim - origin);
+	vec3 axis = pointing.w > 0.5 ? normalize(mat3(gbufferModelViewInverse) * pointing.xyz) : normalize(aim - origin);
 	vec3 offset = pos - origin;
 	float dist2 = max(dot(offset, offset), 1e-6);
 	vec3 dir = offset * inversesqrt(dist2);

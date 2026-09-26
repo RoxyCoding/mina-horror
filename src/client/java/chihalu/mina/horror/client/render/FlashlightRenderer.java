@@ -1,14 +1,12 @@
 package chihalu.mina.horror.client.render;
 
 import chihalu.mina.horror.MinaHorror;
-import chihalu.mina.horror.item.FlashlightItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.MapCodec;
 import java.util.function.Consumer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.special.SpecialModelRenderer;
-import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.item.ItemStack;
@@ -16,23 +14,29 @@ import org.joml.Vector3fc;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws the flashlight mesh for the "mina-horror:flashlight" special item model. The argument is whether the light
- * is on: then the reflector, LED and lens use their lit texture and full brightness.
+ * Draws the flashlight mesh for {@link FlashlightItemModel}. While the light is on the reflector, LED and lens use
+ * their lit texture and full brightness, and the local player's flashlights report their lens to FlashlightBeam.
  */
-public class FlashlightRenderer implements SpecialModelRenderer<Boolean> {
+public class FlashlightRenderer implements SpecialModelRenderer<FlashlightRenderer.State> {
 	private static final Identifier TEXTURE = MinaHorror.id("textures/model/flashlight.png");
 
-	public static void register() {
-		SpecialModelRenderers.ID_MAPPER.put(MinaHorror.id("flashlight"), Unbaked.MAP_CODEC);
+	/** on: switched on; hand: 0 main, 1 off when held by the local player in the current view, else -1. */
+	public record State(boolean on, int hand, boolean firstPerson) {
+		public static final State OFF = new State(false, -1, false);
+		public static final State LIT = new State(true, -1, false);
 	}
 
 	@Override
 	public void submit(
-		final @Nullable Boolean on, final PoseStack poseStack, final SubmitNodeCollector submitNodeCollector,
+		final @Nullable State state, final PoseStack poseStack, final SubmitNodeCollector submitNodeCollector,
 		final int lightCoords, final int overlayCoords, final boolean hasFoil, final int outlineColor
 	) {
 		FlashlightMesh mesh = FlashlightMesh.get();
-		boolean lit = on != null && on;
+		boolean lit = state != null && state.on();
+		if (lit && state.hand() >= 0) {
+			FlashlightBeam.capture(state.hand(), poseStack.last().pose(), state.firstPerson());
+		}
+
 		int glowLight = lit ? LightCoordsUtil.FULL_BRIGHT : lightCoords;
 		submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(TEXTURE),
 			(pose, buffer) -> {
@@ -49,15 +53,15 @@ public class FlashlightRenderer implements SpecialModelRenderer<Boolean> {
 	}
 
 	@Override
-	public Boolean extractArgument(final ItemStack stack) {
-		return FlashlightItem.isOn(stack);
+	public State extractArgument(final ItemStack stack) {
+		return FlashlightItemModel.state(stack);
 	}
 
-	public record Unbaked() implements SpecialModelRenderer.Unbaked<Boolean> {
+	public record Unbaked() implements SpecialModelRenderer.Unbaked<State> {
 		public static final MapCodec<Unbaked> MAP_CODEC = MapCodec.unit(new Unbaked());
 
 		@Override
-		public SpecialModelRenderer<Boolean> bake(final SpecialModelRenderer.BakingContext context) {
+		public SpecialModelRenderer<State> bake(final SpecialModelRenderer.BakingContext context) {
 			return new FlashlightRenderer();
 		}
 
