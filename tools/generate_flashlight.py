@@ -59,7 +59,7 @@ def crenellation(count, depth, width, phase):
     return dz
 
 
-TAIL = crenellation(3, 3.1, 0.42, CLIP_ANGLE + math.pi / 3)
+TAIL = crenellation(3, 1.4, 0.34, CLIP_ANGLE + math.pi / 3)
 BEZEL = crenellation(5, -1.5, 0.36, 0.0)
 
 
@@ -162,15 +162,15 @@ def P(z, r, material, smooth=False, dz=None):
 
 def body_profile():
     p = []
-    # rubber tail switch boot, domed
+    # rubber tail switch boot, domed, its top just below the rim so it can be pressed through the notches
     for k in range(7):
         a = k / 6 * (math.pi / 2) * 0.93
-        p.append(P(3.3 - 1.7 * math.cos(a), 7.0 * math.sin(a) / math.sin(math.pi / 2 * 0.93), 'rubber', True))
-    p[-1] = P(3.3, 7.0, 'rubber')
-    p += [P(4.6, 7.2, 'dark'), P(4.6, 9.2, 'anod'),
-          # crenellated tail rim, anodising worn off the tooth tops
-          P(0.7, 9.2, 'worn', dz=TAIL), P(0.0, 9.9, 'worn', dz=TAIL), P(0.0, 12.3, 'worn', dz=TAIL),
-          P(0.7, 13.0, 'anod', dz=TAIL),
+        p.append(P(2.2 - 1.3 * math.cos(a), 8.6 * math.sin(a) / math.sin(math.pi / 2 * 0.93), 'rubber', True))
+    p[-1] = P(2.2, 8.6, 'rubber')
+    p += [P(2.6, 8.8, 'dark'), P(2.6, 9.6, 'anod'),
+          # tail rim with three shallow thumb notches, anodising worn off the edges only
+          P(0.35, 9.6, 'worn', dz=TAIL), P(0.0, 9.95, 'anod', dz=TAIL), P(0.0, 12.6, 'worn', dz=TAIL),
+          P(0.4, 13.0, 'anod', dz=TAIL),
           P(7.0, 13.0, 'anod'), P(7.2, 12.4, 'anod'), P(7.8, 12.4, 'worn'), P(8.0, 13.0, 'knurl'),
           P(14.0, 13.0, 'worn'), P(14.5, 12.5, 'anod'), P(15.4, 12.5, 'dark'),
           # thread gap with the o-ring, then the clip band
