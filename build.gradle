@@ -23,6 +23,11 @@ loom {
 }
 
 fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'mina-horror-test'
+		enableClientGameTests = true
+	}
 	configureDataGeneration {
 		client = true
 	}

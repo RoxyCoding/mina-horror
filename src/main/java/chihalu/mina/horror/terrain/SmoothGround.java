@@ -3,7 +3,15 @@ package chihalu.mina.horror.terrain;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.stream.IntStream;
+import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
+import it.unimi.dsi.fastutil.doubles.DoubleList;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.BitSetDiscreteVoxelShape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -20,8 +28,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Smoothed ground, shared by the drawn slopes (client) and the collision (both sides) so the two always agree.
  *
- * <p>One-block steps in natural ground smooth automatically. Around columns marked with the terrain wand
- * ({@link SmoothColumns}), every top corner of natural ground that touches a marked column also smooths taller steps
+ * <p>Steps up to three blocks in natural ground smooth automatically, without terrain-wand marks.
+ * Every top corner of natural ground smooths
  * to a height shared by the four block columns meeting there: their average, where the tops lie within {@link #SPAN}
  * blocks of each other, but never lower than one block below the highest. Every column's uppermost side face then
  * keeps its height, and the side faces of a higher column always reach down to the lower column's top, so the
@@ -51,11 +59,13 @@ public final class SmoothGround {
 	private static final int NONE = Integer.MIN_VALUE;
 	/** Largest height difference between the columns at a corner that is still smoothed; steeper cliffs stay square. */
 	public static final int SPAN = 3;
-	private static final int AUTO_SPAN = 1;
+	private static final int AUTO_SPAN = SPAN;
 	/** Collision follows the slope in columns of this many per block side, in steps of 1/{@link #STEPS} block. */
-	private static final int CELLS = 4;
-	private static final int STEPS = 8;
-	private static final Map<Long, VoxelShape> SHAPES = new ConcurrentHashMap<>();
+	private static final int STEPS = 256;
+	// Bound the denser collision meshes; terrain edits must not grow the cache forever.
+	private static final Map<List<Integer>, VoxelShape> SHAPES = Collections.synchronizedMap(new LinkedHashMap<>(64, .75f, true) {
+		@Override protected boolean removeEldestEntry(Map.Entry<List<Integer>, VoxelShape> entry) { return size() > 64; }
+	});
 
 	/**
 	 * The smoothed top of the ground over one block: how far each top corner moves (x0z0, x1z0, x0z1, x1z1) and the
@@ -201,8 +211,6 @@ public final class SmoothGround {
 
 	/** Smoothed top for the block column at (x, z) whose ground ends at height y, or null where nothing moves. */
 	public static @Nullable Top top(BlockGetter level, SmoothColumns.Lookup marks, int x, int y, int z) {
-		boolean[][] marked = new boolean[3][3];
-		for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) marked[dx + 1][dz + 1] = marks.has(x + dx, z + dz);
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		int[][] tops = new int[3][3];
 		for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) tops[dx + 1][dz + 1] = groundTop(level, cursor, x + dx, y, z + dz, AUTO_SPAN);
@@ -211,18 +219,11 @@ public final class SmoothGround {
 		boolean moved = false;
 		for (int i = 0; i <= 1; i++) {
 			for (int j = 0; j <= 1; j++) {
-				boolean manual = marked[i][j] || marked[i + 1][j] || marked[i][j + 1] || marked[i + 1][j + 1];
 				int a = tops[i][j], b = tops[i + 1][j], c = tops[i][j + 1], d = tops[i + 1][j + 1];
-				if (manual) {
-					a = groundTop(level, cursor, x + i - 1, y, z + j - 1, SPAN);
-					b = groundTop(level, cursor, x + i, y, z + j - 1, SPAN);
-					c = groundTop(level, cursor, x + i - 1, y, z + j, SPAN);
-					d = groundTop(level, cursor, x + i, y, z + j, SPAN);
-				}
 				if (a == NONE || b == NONE || c == NONE || d == NONE) continue;
 				int high = Math.max(Math.max(a, b), Math.max(c, d));
 				int low = Math.min(Math.min(a, b), Math.min(c, d));
-				if (high - low > (manual ? SPAN : AUTO_SPAN)) continue;
+				if (high - low > AUTO_SPAN) continue;
 				float height = Math.max((a + b + c + d) / 4f, high - 1);
 				// Keep contact with blocks resting on this surface while allowing adjacent slopes to meet it.
 				int[] cornerTops = {a, b, c, d};
@@ -300,32 +301,39 @@ public final class SmoothGround {
 	 * Shared between equal slopes.
 	 */
 	static @Nullable VoxelShape layerShape(Top top, int layer) {
-		long key = 0;
-		int[] heights = new int[CELLS * CELLS];
+		final int cells = TerrainDetail.collisionCells;
+		int[] heights = new int[cells * cells];
 		boolean full = true, empty = true;
-		for (int i = 0; i < CELLS; i++) {
-			for (int j = 0; j < CELLS; j++) {
-				float height = 1f + top.offsetAt((i + 0.5f) / CELLS, (j + 0.5f) / CELLS);
+		for (int i = 0; i < cells; i++) {
+			for (int j = 0; j < cells; j++) {
+				float height = 1f + top.offsetAt((i + 0.5f) / cells, (j + 0.5f) / cells);
 				int steps = Math.round(height * STEPS) - layer * STEPS;
 				// The ground block keeps at least a sliver, so nothing falls through where the slope dips to its bottom.
 				steps = Math.clamp(steps, layer == 0 ? 1 : 0, STEPS);
-				heights[i * CELLS + j] = steps;
+				heights[i * cells + j] = steps;
 				full &= steps == STEPS;
 				empty &= steps == 0;
-				key = key << 4 | steps;
 			}
 		}
 		if (layer == 0 ? full : empty) return null;
-		return SHAPES.computeIfAbsent(key, k -> {
-			VoxelShape shape = Shapes.empty();
-			for (int i = 0; i < CELLS; i++) {
-				for (int j = 0; j < CELLS; j++) {
-					if (heights[i * CELLS + j] == 0) continue;
-					shape = Shapes.or(shape, Shapes.box((double) i / CELLS, 0.0, (double) j / CELLS,
-						(double) (i + 1) / CELLS, (double) heights[i * CELLS + j] / STEPS, (double) (j + 1) / CELLS));
-				}
+		List<Integer> key = Arrays.stream(heights).boxed().toList();
+		VoxelShape cached = SHAPES.get(key);
+		if (cached != null) return cached;
+		// Fill the native grid once, without repeated unions/optimizations or holding the cache lock.
+		int[] levels = IntStream.concat(IntStream.of(0), Arrays.stream(heights)).distinct().sorted().toArray();
+		DoubleList horizontal = DoubleArrayList.wrap(IntStream.rangeClosed(0, cells).mapToDouble(i -> (double)i / cells).toArray());
+		DoubleList vertical = DoubleArrayList.wrap(Arrays.stream(levels).mapToDouble(i -> (double)i / STEPS).toArray());
+		BitSetDiscreteVoxelShape grid = new BitSetDiscreteVoxelShape(cells, levels.length - 1, cells);
+		for (int x = 0; x < cells; x++) for (int z = 0; z < cells; z++) {
+			int height = Arrays.binarySearch(levels, heights[x * cells + z]);
+			for (int y = 0; y < height; y++) grid.fill(x, y, z);
+		}
+		VoxelShape result = new VoxelShape(grid) {
+			@Override public DoubleList getCoords(Direction.Axis axis) {
+				return axis == Direction.Axis.Y ? vertical : horizontal;
 			}
-			return shape.optimize();
-		});
+		};
+		SHAPES.put(key, result);
+		return result;
 	}
 }

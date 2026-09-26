@@ -2,7 +2,11 @@ package chihalu.mina.horror.client.render.terrain;
 
 public final class ShoreWaterCheck {
 	public static void main(String[] args) throws Exception {
-		checkTerrainSurface();
+		for (int detail : new int[]{2,4,8}) {
+			chihalu.mina.horror.terrain.TerrainDetail.renderCells=detail;
+			checkTerrainSurface();
+		}
+		chihalu.mina.horror.terrain.TerrainDetail.renderCells=4;
 		checkMaterialPalette();
 		checkTerrainLight();
 		checkIrisVertexContract();
@@ -61,8 +65,9 @@ public final class ShoreWaterCheck {
 			return proxy;
 		});
 		TerrainSurface.emit(source, output);
-		if (counts[0] != 64 || counts[1] != 16) throw new AssertionError("Wrong surface subdivision count");
-		System.out.println("Terrain subdivision: 16 quads follow the bilinear surface");
+		int cells=chihalu.mina.horror.terrain.TerrainDetail.renderCells;
+		if (counts[0] != cells*cells*4 || counts[1] != cells*cells) throw new AssertionError("Wrong surface subdivision count");
+		System.out.println("Terrain subdivision: " + cells*cells + " quads follow the bilinear surface");
 	}
 
 	private static void checkMaterialPalette() {

@@ -18,7 +18,7 @@ vec3 blockLightIrradiance(float blockLight, vec3 worldPos) {
 	// Fade out where vanilla light ends instead of stopping at a hard edge.
 	falloff *= smoothstep(0.0, 0.15, blockLight);
 	// Flames flicker; nearby areas flicker together, distant ones independently.
-	vec2 cell = floor(worldPos.xz / 6.0) * 0.137;
+	vec2 cell = worldPos.xz * (0.137 / 6.0);
 	float flicker = texture(noisetex, vec2(frameTimeCounter * 0.6, 0.31) + cell).g
 		+ texture(noisetex, vec2(frameTimeCounter * 2.3, 0.73) + cell).g * 0.5;
 	flicker = 1.0 + (flicker - 0.75) * 0.25;

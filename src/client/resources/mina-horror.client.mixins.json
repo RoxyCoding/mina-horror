@@ -7,7 +7,8 @@
 		"TreeFaceCullingMixin",
 		"TreeSectionVisibilityMixin",
 		"SodiumTreeFaceCullingMixin",
-		"SodiumTreeSectionVisibilityMixin"
+		"SodiumTreeSectionVisibilityMixin",
+		"SodiumTerrainLightMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

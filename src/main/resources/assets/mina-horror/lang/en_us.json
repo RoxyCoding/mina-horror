@@ -4,5 +4,12 @@
   "item.mina-horror.terrain_wand": "Terrain Wand",
   "item.mina-horror.terrain_wand.smoothed": "Smoothed (brush %s×%s)",
   "item.mina-horror.terrain_wand.restored": "Manual smoothing cleared (brush %s×%s)",
-  "item.mina-horror.terrain_wand.brush": "Brush size: %s×%s"
+  "item.mina-horror.terrain_wand.brush": "Brush size: %s×%s",
+  "mina.terrain.title": "Terrain",
+  "mina.terrain.render": "Visual subdivisions",
+  "mina.terrain.collision": "Collision subdivisions",
+  "mina.terrain.render_hint": "2: Low / 4: Standard / 8: High",
+  "mina.terrain.collision_hint": "Singleplayer only. Lower values reduce load.",
+  "mina.terrain.apply": "Save and apply",
+  "mina.terrain.save_failed": "Save failed"
 }

@@ -3,6 +3,7 @@ package chihalu.mina.horror.client.render.terrain;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadView;
 import chihalu.mina.horror.terrain.SmoothGround;
+import chihalu.mina.horror.terrain.TerrainDetail;
 
 /** Tessellate twisted ground tops along their bilinear height field instead of one long diagonal. */
 final class TerrainSurface {
@@ -16,8 +17,9 @@ final class TerrainSurface {
 
     static void emit(QuadView source, QuadEmitter out, SmoothGround.Top top) {
         boolean upward = source.y(0) > .999f && source.y(1) > .999f && source.y(2) > .999f && source.y(3) > .999f;
-        int cellsU = top == null || upward || source.x(0) != source.x(3) || source.z(0) != source.z(3) ? 4 : 1;
-        int cellsV = top == null || upward || source.x(0) != source.x(1) || source.z(0) != source.z(1) ? 4 : 1;
+        int cells = TerrainDetail.renderCells;
+        int cellsU = top == null || upward || source.x(0) != source.x(3) || source.z(0) != source.z(3) ? cells : 1;
+        int cellsV = top == null || upward || source.x(0) != source.x(1) || source.z(0) != source.z(1) ? cells : 1;
         for (int x = 0; x < cellsU; x++) for (int z = 0; z < cellsV; z++) {
             out.copyFrom(source);
             out.cullFace(null);

@@ -4,5 +4,12 @@
   "item.mina-horror.terrain_wand": "地ならしの杖",
   "item.mina-horror.terrain_wand.smoothed": "なめらかにしました（ブラシ %s×%s）",
   "item.mina-horror.terrain_wand.restored": "手動の地ならしを解除しました（ブラシ %s×%s）",
-  "item.mina-horror.terrain_wand.brush": "ブラシの大きさ：%s×%s"
+  "item.mina-horror.terrain_wand.brush": "ブラシの大きさ：%s×%s",
+  "mina.terrain.title": "地形設定",
+  "mina.terrain.render": "描画の細分化",
+  "mina.terrain.collision": "当たり判定の細分化",
+  "mina.terrain.render_hint": "2：軽量 ／ 4：標準 ／ 8：高精細",
+  "mina.terrain.collision_hint": "シングルプレイ用。小さいほど軽量です",
+  "mina.terrain.apply": "保存して適用",
+  "mina.terrain.save_failed": "保存できませんでした"
 }

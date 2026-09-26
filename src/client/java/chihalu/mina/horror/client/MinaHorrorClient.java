@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.entity.EntityRenderers;
 public class MinaHorrorClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+		chihalu.mina.horror.client.settings.TerrainSettings.register();
 		NaturalTreeModels.register();
 		SmoothTerrain.register();
 		BundledShaderPack.install();

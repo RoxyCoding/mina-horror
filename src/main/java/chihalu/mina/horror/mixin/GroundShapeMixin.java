@@ -1,7 +1,9 @@
 package chihalu.mina.horror.mixin;
 
 import chihalu.mina.horror.terrain.SmoothGround;
+import chihalu.mina.horror.terrain.SlopeWalking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -27,8 +29,13 @@ public abstract class GroundShapeMixin {
 	@Inject(method = "getCollisionShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;",
 		at = @At("HEAD"), cancellable = true)
 	private void smoothCollision(BlockGetter level, BlockPos pos, CollisionContext context, CallbackInfoReturnable<VoxelShape> cir) {
+		// Collision caches are built before registry tags are bound.
+		if (this.asState().getBlock() instanceof LeavesBlock) {
+			cir.setReturnValue(Shapes.empty());
+			return;
+		}
 		VoxelShape shape = SmoothGround.shapeFor(this.asState(), level, pos);
-		if (shape != null) cir.setReturnValue(shape);
+		if (shape != null) cir.setReturnValue(SlopeWalking.replaces(pos) ? Shapes.empty() : SlopeWalking.contact(level, pos, context, shape));
 	}
 
 	@Inject(method = "getShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;",
@@ -42,9 +49,12 @@ public abstract class GroundShapeMixin {
 	@Inject(method = "getCollisionShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;",
 		at = @At("RETURN"), cancellable = true)
 	private void smoothFill(BlockGetter level, BlockPos pos, CollisionContext context, CallbackInfoReturnable<VoxelShape> cir) {
+		if (this.asState().getBlock() instanceof LeavesBlock) return;
 		VoxelShape fill = SmoothGround.fillFor(this.asState(), level, pos);
 		if (fill == null) return;
+		if (SlopeWalking.replaces(pos)) return;
 		VoxelShape own = cir.getReturnValue();
+		fill = SlopeWalking.contact(level, pos, context, fill);
 		cir.setReturnValue(own.isEmpty() ? fill : Shapes.or(own, fill));
 	}
 

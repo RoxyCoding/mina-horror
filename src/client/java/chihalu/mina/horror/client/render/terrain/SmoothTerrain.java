@@ -103,6 +103,7 @@ public final class SmoothTerrain {
 				return;
 			}
 			QuadEmitter lit = net.fabricmc.fabric.api.client.renderer.v1.Renderer.get().quadEmitter(quad -> {
+				if (quad.tag() != 0x4D4154) quad.tag(0x4D4C54);
 				for (int i=0;i<4;i++) quad.lightmap(i, TerrainLight.at(level,
 					pos.getX()+quad.x(i), pos.getY()+quad.y(i)+.5, pos.getZ()+quad.z(i)));
 				emitter.copyFrom(quad);
