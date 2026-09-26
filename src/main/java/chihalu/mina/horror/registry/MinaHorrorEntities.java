@@ -32,7 +32,7 @@ public final class MinaHorrorEntities {
 		BuiltInRegistries.ENTITY_TYPE,
 		BROOM_KEY,
 		EntityType.Builder.<Broom>of(Broom::new, MobCategory.MISC)
-			.sized(0.9F, 0.6F)
+			.sized(0.9F, 0.7F)
 			.clientTrackingRange(10)
 			.build(BROOM_KEY)
 	);

@@ -50,7 +50,7 @@ TILE_MM = {'wood': 220.0, 'gold': 40.0, 'cord': 30.0, 'wrap': 60.0, 'ribbon': 60
 HANDLE = (-215.0, 1030.0)   # z of its hidden ends, inside the wrap and inside the ferrule
 FERRULE_Z = 1006.0
 BOW_Z = 830.0               # clear of a sitting rider's feet (0.75 blocks ahead of the seat)
-KNOTS = ((140.0, 5.0, 1.7), (262.0, 1.2, 2.4), (575.0, 3.9, 2.1))   # z, angle, height in mm
+KNOTS = ((140.0, 5.0, 2.6), (262.0, 1.2, 3.6), (575.0, 3.9, 3.2))   # z, angle, height in mm
 WRAP_S = (180.0, 365.0)     # the binding, measured backwards from the seat
 CUFF_S = (365.0, 419.5)
 HOOP_S, HOOP_R, HOOP_T = 462.0, 81.5, 4.3
@@ -309,12 +309,13 @@ def ellipsoid(mesh, group, material, centre, axes, radii, rows=12, seg=24, pinch
 def handle_centre(z):
     s = (z - HANDLE[0]) / (HANDLE[1] - HANDLE[0])
     x = 5.0 * math.sin(2 * math.pi * s) * math.sin(math.pi * s)
-    y = -30.0 * math.exp(-((z - BOW_Z) / 190.0) ** 2) + 14.0 * smoothstep(900.0, 1060.0, z)
+    # sags into a deep V where the bow and lantern hang, as in the art
+    y = -125.0 * math.exp(-((z - BOW_Z) / 75.0) ** 2) + 14.0 * smoothstep(900.0, 1060.0, z)
     return np.array([x, y, z])
 
 
 def base_radius(z):
-    return 20.0 - 3.6 * (z - HANDLE[0]) / (HANDLE[1] - HANDLE[0])
+    return 30.0 - 5.4 * (z - HANDLE[0]) / (HANDLE[1] - HANDLE[0])
 
 
 def handle_radius(z, theta):
@@ -326,7 +327,8 @@ def handle_radius(z, theta):
 
 
 def handle(mesh):
-    zs = [np.arange(HANDLE[0], HANDLE[1] + 1e-6, 8.0)] + [np.arange(kz - 42, kz + 42, 3.0) for kz, _, _ in KNOTS]
+    zs = [np.arange(HANDLE[0], HANDLE[1] + 1e-6, 8.0), np.arange(BOW_Z - 200, BOW_Z + 200, 4.0)]
+    zs += [np.arange(kz - 42, kz + 42, 3.0) for kz, _, _ in KNOTS]
     zs = np.unique(np.round(np.concatenate(zs), 3))
     C = np.array([handle_centre(z) for z in zs])
     _, A, B = frames(C)
@@ -367,10 +369,10 @@ def binding(mesh):
 
     def wrap_r(s):
         t = min(max((s - 195.0) / (s1 - 195.0), 0.0), 1.0)
-        return 31.5 + (74.0 - 31.5) * t ** 1.1
+        return 40.0 + (74.0 - 40.0) * t ** 1.1
 
-    p = [P_(176.0, 15.0, 'wrap'), P_(178.0, 18.5, 'wrap', True), P_(180.0, 22.0, 'wrap', True),
-         P_(183.0, 26.5, 'wrap', True), P_(188.0, 29.5, 'wrap', True)]
+    p = [P_(176.0, 24.0, 'wrap'), P_(178.0, 29.0, 'wrap', True), P_(180.0, 33.0, 'wrap', True),
+         P_(183.0, 36.5, 'wrap', True), P_(188.0, 38.5, 'wrap', True)]
     p += [P_(s, wrap_r(s), 'wrap', True) for s in np.arange(195.0, 240.0, 8.0)]
     # black cord lashing
     p += [P_(240.0, wrap_r(240.0), 'cord'), P_(240.6, wrap_r(240.6) + 2.0, 'cord', True),
@@ -491,6 +493,9 @@ def bow(mesh):
     ribbon(mesh, 'solid', C, np.tile(T, (49, 1)), np.full(49, 17.0), thick=1.0, closed=True,
            cup=np.zeros(49))
     knot = c + right * (r + 5.5) - up * 4.0
+    lower = up
+    # the bow itself is turned 45 degrees anticlockwise (seen from the right) about the knot
+    T, up = (T + up) / math.sqrt(2), (up - T) / math.sqrt(2)
 
     def folds(la, lo):
         return 1.0 - 0.07 * math.cos(la) ** 2 * math.cos(3 * lo) ** 2
@@ -523,13 +528,13 @@ def bow(mesh):
         for k in range(rows + 1):
             t = k / rows
             C.append(knot + T * sgn * (reach * t ** 1.2 + 4.0 * math.sin(2.5 * math.pi * t) * t)
-                     - up * (8.0 + drop * t) + right * (3.0 + 7.0 * t))
+                     - up * (8.0 + drop * t) + right * (3.0 + 40.0 * t))   # flaring clear of the lantern
             twist = 0.4 * t * sgn
             W.append(unit(T * math.cos(twist) + right * math.sin(twist)))
         width = np.linspace(17.0, 25.0, rows + 1)
         cup = 1.6 * np.sin(np.pi * np.linspace(0, 1, rows + 1))
         ribbon(mesh, 'solid', np.array(C), np.array(W), width, thick=1.0, notch=8.0, cup=cup)
-    return knot - up * 10.5
+    return knot - lower * 10.5
 
 
 def lantern(mesh, pivot):

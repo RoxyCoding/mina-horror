@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class Broom extends VehicleEntity {
 	/** Height of the handle's axis (and the seat) above the entity's position. */
-	public static final float AXIS_HEIGHT = 0.5F;
+	public static final float AXIS_HEIGHT = 0.6F;
 	private static final double CRUISE_SPEED = 0.45;
 	private static final double SPRINT_SPEED = 0.85;
 	private static final double RESPONSE = 0.12;
@@ -180,8 +180,8 @@ public class Broom extends VehicleEntity {
 
 	@Override
 	protected Vec3 getPassengerAttachmentPoint(final Entity passenger, final EntityDimensions dimensions, final float scale) {
-		// a sitting rider's thighs rest on the handle
-		return new Vec3(0.0, AXIS_HEIGHT, 0.0);
+		// a sitting rider's thighs rest on top of the handle
+		return new Vec3(0.0, AXIS_HEIGHT + 0.02, 0.0);
 	}
 
 	@Override
