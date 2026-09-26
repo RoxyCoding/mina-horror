@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class Broom extends VehicleEntity {
 	/** Height of the handle's axis (and the seat) above the entity's position. */
-	public static final float AXIS_HEIGHT = 0.45F;
+	public static final float AXIS_HEIGHT = 0.5F;
 	private static final double CRUISE_SPEED = 0.45;
 	private static final double SPRINT_SPEED = 0.85;
 	private static final double RESPONSE = 0.12;

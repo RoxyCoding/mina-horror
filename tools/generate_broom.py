@@ -29,7 +29,8 @@ from PIL import Image, ImageDraw, ImageFilter
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'src/main/resources/assets/mina-horror')
 TEX = 1024
-MM = 0.001                  # blocks per millimetre: the broom is 2 m long
+MM = 0.0015                 # blocks per millimetre: the 2 m broom is drawn 3 blocks long, as long beside
+                            # its rider as in the art
 MAGIC = 0x42524F4D
 GROUPS = ('solid', 'lantern', 'flame', 'glass')
 

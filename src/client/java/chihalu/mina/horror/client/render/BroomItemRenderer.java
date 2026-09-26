@@ -19,7 +19,7 @@ import org.joml.Vector3fc;
  */
 public class BroomItemRenderer implements NoDataSpecialModelRenderer {
 	private static final float SCALE = 0.68F;
-	private static final float CENTRE_Z = 0.09F;
+	private static final float CENTRE_Z = 0.135F;
 
 	public static void register() {
 		SpecialModelRenderers.ID_MAPPER.put(MinaHorror.id("broom"), Unbaked.MAP_CODEC);

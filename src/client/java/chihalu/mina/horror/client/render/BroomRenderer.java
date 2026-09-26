@@ -24,7 +24,7 @@ public class BroomRenderer extends EntityRenderer<Broom, BroomRenderState> {
 
 	public BroomRenderer(final EntityRendererProvider.Context context) {
 		super(context);
-		this.shadowRadius = 0.45F;
+		this.shadowRadius = 0.65F;
 	}
 
 	@Override
