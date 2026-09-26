@@ -18,8 +18,8 @@ import org.joml.Vector3fc;
  * sword sprite; item/broom.json holds the display transforms.
  */
 public class BroomItemRenderer implements NoDataSpecialModelRenderer {
-	private static final float SCALE = 0.68F;
-	private static final float CENTRE_Z = 0.135F;
+	private static final float SCALE = 0.6F;
+	private static final float CENTRE_Z = 0.3F;
 
 	public static void register() {
 		SpecialModelRenderers.ID_MAPPER.put(MinaHorror.id("broom"), Unbaked.MAP_CODEC);

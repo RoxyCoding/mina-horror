@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'src/main/resources/assets/mina-horror')
 TEX = 1024
-MM = 0.0015                 # blocks per millimetre: the 2 m broom is drawn 3 blocks long, as long beside
+MM = 0.0015                 # blocks per millimetre: the 2.25 m broom is drawn 3.4 blocks long, as long beside
                             # its rider as in the art
 MAGIC = 0x42524F4D
 GROUPS = ('solid', 'lantern', 'flame', 'glass')
@@ -47,9 +47,9 @@ CELL = {
 TILE_MM = {'wood': 220.0, 'gold': 40.0, 'cord': 30.0, 'wrap': 60.0, 'ribbon': 60.0, 'candle': 40.0,
            'dark': 40.0, 'gilt': 40.0}
 
-HANDLE = (-215.0, 1030.0)   # z of its hidden ends, inside the wrap and inside the ferrule
-FERRULE_Z = 1006.0
-BOW_Z = 830.0               # clear of a sitting rider's feet (0.75 blocks ahead of the seat)
+HANDLE = (-215.0, 1280.0)   # z of its hidden ends, inside the wrap and inside the ferrule
+FERRULE_Z = 1256.0
+BOW_Z = 1080.0              # clear of a sitting rider's feet (0.75 blocks ahead of the seat)
 WRAP_S = (180.0, 365.0)     # the binding, measured backwards from the seat
 CUFF_S = (365.0, 419.5)
 HOOP_S, HOOP_R, HOOP_T = 462.0, 81.5, 4.3
@@ -309,7 +309,7 @@ def handle_centre(z):
     s = (z - HANDLE[0]) / (HANDLE[1] - HANDLE[0])
     x = 5.0 * math.sin(2 * math.pi * s) * math.sin(math.pi * s)
     # sags into a deep V where the bow and lantern hang, as in the art
-    y = -125.0 * math.exp(-((z - BOW_Z) / 75.0) ** 2) + 14.0 * smoothstep(900.0, 1060.0, z)
+    y = -125.0 * math.exp(-((z - BOW_Z) / 75.0) ** 2) + 14.0 * smoothstep(1150.0, 1310.0, z)
     return np.array([x, y, z])
 
 

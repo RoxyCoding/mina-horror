@@ -27,7 +27,7 @@ public final class MinaHorrorEntities {
 
 	public static final ResourceKey<EntityType<?>> BROOM_KEY = ResourceKey.create(Registries.ENTITY_TYPE, MinaHorror.id("broom"));
 
-	// The 3-block broom is drawn well past its box; the box covers the seat and stays under a block wide for tunnels.
+	// The 3.4-block broom is drawn well past its box; the box covers the seat and stays under a block wide for tunnels.
 	public static final EntityType<Broom> BROOM = Registry.register(
 		BuiltInRegistries.ENTITY_TYPE,
 		BROOM_KEY,
