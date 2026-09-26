@@ -21,8 +21,8 @@ const int ITEM_FLASHLIGHT_ON = 1001;
 const vec3 FLASHLIGHT_COLOR = vec3(0.86, 0.93, 1.0);
 // The yellowish corona LEDs leave at the edge of the spill.
 const vec3 FLASHLIGHT_CORONA = vec3(1.0, 0.9, 0.72);
-// Candela of the hotspot in the pack's units: about a torch at arm's length, 8 blocks away.
-const float FLASHLIGHT_INTENSITY = 120.0;
+// Candela at the beam centre in the pack's units: a torch about 4 blocks away, 8 blocks out.
+const float FLASHLIGHT_INTENSITY = 30.0;
 // Blocks ahead where the beam crosses the line of sight.
 const float FLASHLIGHT_AIM = 12.0;
 
@@ -51,9 +51,8 @@ vec3 flashlightOrigin(int hand) {
 }
 
 // Light reaching pos (relative to the camera) from the flashlight in one hand, on a surface
-// facing the lamp; toLight gets the direction towards the lamp. The profile is that of a deep
-// smooth reflector: a tight hotspot, a faint ring at its rim and the wide spill of light that
-// leaves the LED without touching the reflector.
+// facing the lamp; toLight gets the direction towards the lamp. The beam is an even flood with no
+// bright hotspot, fading out over its outer edge.
 vec3 flashlightLight(vec3 pos, int hand, out vec3 toLight) {
 	vec3 origin = flashlightOrigin(hand);
 	vec4 pointing = hand == 0 ? minaFlashlightDir0 : minaFlashlightDir1;
@@ -65,11 +64,9 @@ vec3 flashlightLight(vec3 pos, int hand, out vec3 toLight) {
 	toLight = -dir;
 
 	float angle = acos(clamp(dot(dir, axis), -1.0, 1.0));
-	float hotspot = exp(-angle * angle / (0.07 * 0.07));
-	float ring = 0.04 * exp(-pow((angle - 0.15) / 0.03, 2.0));
-	float spill = 0.06 * smoothstep(0.45, 0.3, angle);
+	float beam = smoothstep(0.45, 0.08, angle);
 	vec3 color = mix(FLASHLIGHT_COLOR, FLASHLIGHT_CORONA, smoothstep(0.12, 0.4, angle) * 0.6);
-	return color * (hotspot + ring + spill) * FLASHLIGHT_INTENSITY * FLASHLIGHT_BRIGHTNESS / (dist2 + 0.25);
+	return color * beam * FLASHLIGHT_INTENSITY * FLASHLIGHT_BRIGHTNESS / (dist2 + 0.25);
 }
 
 #endif
