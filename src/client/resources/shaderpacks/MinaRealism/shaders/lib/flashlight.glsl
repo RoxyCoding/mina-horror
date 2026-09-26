@@ -51,10 +51,9 @@ bool flashlightCaptured(int hand) {
 // Lens position, relative to the camera, of the flashlight in the given hand.
 vec3 flashlightOrigin(int hand) {
 	if (flashlightCaptured(hand)) return viewToPlayer((hand == 0 ? minaFlashlightPos0 : minaFlashlightPos1).xyz);
-	// Guess: where a first-person hand holds it, low on that hand's side of the view. Built from
-	// the view matrix only; Iris' eyePosition and playerLookVector did not arrive as vec3 here and
-	// lit every surface for the frame before the lens was first drawn.
-	return viewToPlayer(vec3(hand == 0 ? 0.3 : -0.3, -0.25, -0.4));
+	// Guess: where the first-person lens rests once raised (measured from FlashlightBeam), so the
+	// beam does not jump when the drawn lens takes over. Built from the view matrix only.
+	return viewToPlayer(vec3(hand == 0 ? 0.53 : -0.53, -0.29, -1.19));
 }
 
 // Light reaching pos (relative to the camera) from the flashlight in one hand, on a surface
@@ -72,8 +71,8 @@ vec3 flashlightLight(vec3 pos, int hand, out vec3 toLight) {
 	toLight = -dir;
 
 	float angle = acos(clamp(dot(dir, axis), -1.0, 1.0));
-	float beam = smoothstep(0.45, 0.08, angle);
-	vec3 color = mix(FLASHLIGHT_COLOR, FLASHLIGHT_CORONA, smoothstep(0.12, 0.4, angle) * 0.6);
+	float beam = smoothstep(0.62, 0.12, angle);
+	vec3 color = mix(FLASHLIGHT_COLOR, FLASHLIGHT_CORONA, smoothstep(0.17, 0.55, angle) * 0.6);
 	return color * beam * FLASHLIGHT_INTENSITY * FLASHLIGHT_BRIGHTNESS / (dist2 + 0.25);
 }
 
