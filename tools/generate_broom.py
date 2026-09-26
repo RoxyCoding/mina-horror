@@ -482,8 +482,9 @@ def bow_frame():
 
 
 def bow(mesh):
-    """Red satin bow tied on the handle's right side: a band around the handle, the knot, two loops and two
-    dovetailed tails."""
+    """Red satin bow tied on top of the handle: a band around the handle, the knot on top, two loops spreading
+    left and right and two dovetailed tails trailing back and draping down the sides. Returns the hook under the
+    band that the lantern hangs from."""
     c, T, r = bow_frame()
     right = unit(np.cross(T, (0.0, 1.0, 0.0)))    # -x
     up = np.cross(right, T)
@@ -492,49 +493,50 @@ def bow(mesh):
     C = np.array([c + (r + 0.9) * (math.cos(a) * right + math.sin(a) * up) for a in ang])
     ribbon(mesh, 'solid', C, np.tile(T, (49, 1)), np.full(49, 17.0), thick=1.0, closed=True,
            cup=np.zeros(49))
-    knot = c + right * (r + 5.5) - up * 4.0
-    lower = up
-    # the bow itself is turned 45 degrees anticlockwise (seen from the right) about the knot
-    T, up = (T + up) / math.sqrt(2), (up - T) / math.sqrt(2)
+    knot = c + up * (r + 5.5)
 
     def folds(la, lo):
         return 1.0 - 0.07 * math.cos(la) ** 2 * math.cos(3 * lo) ** 2
 
-    ellipsoid(mesh, 'solid', 'ribbon', knot, (right, up, T), (6.5, 11.5, 10.0), pinch=folds)
+    ellipsoid(mesh, 'solid', 'ribbon', knot, (right, T, up), (11.5, 10.0, 6.5), pinch=folds)
 
-    # loops: a ribbon folded back on itself, its outer layer facing out, pinched into the knot
+    # loops: a ribbon folded back on itself, its outer layer facing up, pinched into the knot
     rows = 64
-    for sgn in (-1.0, 1.0):                      # back loop, front loop
-        d = unit(T * sgn * math.cos(math.radians(33)) + up * math.sin(math.radians(33)))
-        across = unit(np.cross(right, d))
-        L, depth = 62.0, 11.0
+    for sgn in (-1.0, 1.0):                      # left loop, right loop
+        side = right * sgn
+        d = unit(side + T * 0.9 + up * 0.3)       # out to the side and forward, as drawn from the rider's view
+        across = unit(np.cross(d, up))
+        L, depth = 64.0, 15.0
         C, W, width, cup = [], [], [], []
         for k in range(rows + 1):
             u = k / rows
             bulge = math.sin(math.pi * u)
-            C.append(knot + d * L * bulge ** 2 + right * (depth / 2 * (1 + math.sin(2 * math.pi * u)) + 2.0)
+            C.append(knot + d * L * bulge ** 2 + up * (depth / 2 * (1 + math.sin(2 * math.pi * u)) + 2.0)
                      + across * 3.0 * math.sin(2 * math.pi * u) * sgn)
-            twist = 0.3 * bulge * sgn
-            W.append(unit(across * math.cos(twist) + right * math.sin(twist)))
-            width.append(7.0 + 28.0 * bulge ** 0.7)
-            cup.append(2.8 * bulge)
+            twist = 0.12 * bulge * sgn
+            W.append(unit(across * math.cos(twist) + up * math.sin(twist)))
+            width.append(6.0 + 34.0 * bulge ** 1.4)          # a teardrop lobe, pinched at the knot
+            cup.append(3.5 * bulge)
         C[-1] = C[0]
         ribbon(mesh, 'solid', np.array(C), np.array(W), np.array(width), thick=1.0, closed=True, cup=np.array(cup))
 
-    # tails hanging either side of the lantern, their faces towards the sides
-    for sgn, reach, drop in ((-1.0, 48.0, 68.0), (1.0, 44.0, 72.0)):   # back tail, front tail
+    # tails trailing back from the knot and draping down either side of the handle
+    for sgn, reach, spread in ((-1.0, 40.0, 42.0), (1.0, 58.0, 46.0)):   # left tail (shorter), right tail
+        side = right * sgn
         rows = 20
         C, W = [], []
         for k in range(rows + 1):
             t = k / rows
-            C.append(knot + T * sgn * (reach * t ** 1.2 + 4.0 * math.sin(2.5 * math.pi * t) * t)
-                     - up * (8.0 + drop * t) + right * (3.0 + 40.0 * t))   # flaring clear of the lantern
-            twist = 0.4 * t * sgn
-            W.append(unit(T * math.cos(twist) + right * math.sin(twist)))
-        width = np.linspace(17.0, 25.0, rows + 1)
+            q = knot + side * spread * math.sin(math.pi / 2 * t) - T * reach * t - up * (r + 12.0) * t ** 1.6
+            C.append(q)
+            tangent = (side * spread * math.pi / 2 * math.cos(math.pi / 2 * t) - T * reach
+                       - up * (r + 12.0) * 1.6 * t ** 0.6)
+            outward = unit(up * math.cos(1.3 * t) + side * math.sin(1.3 * t))   # lies flat, then hangs
+            W.append(unit(np.cross(unit(tangent), outward)))
+        width = np.linspace(17.0, 23.0, rows + 1)
         cup = 1.6 * np.sin(np.pi * np.linspace(0, 1, rows + 1))
         ribbon(mesh, 'solid', np.array(C), np.array(W), width, thick=1.0, notch=8.0, cup=cup)
-    return knot - lower * 10.5
+    return c - up * (r + 1.5)
 
 
 def lantern(mesh, pivot):
