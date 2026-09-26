@@ -7,6 +7,7 @@
 
 uniform sampler2D realalbedo;  // Colour, sRGB. 1024 texels per material.
 uniform sampler2D realsurface; // Tangent-space normal (OpenGL) and roughness. 512 texels per material.
+uniform sampler2D leaflitter;
 
 const int REAL_GRASS = 0;
 const int REAL_DIRT = 1;
@@ -56,22 +57,8 @@ float realFootprint(vec3 playerPos, vec3 faceNormal) {
 // with the given axis-aligned normal. rotation turns the scan, scale
 // shrinks it: the second copy used against repetition.
 //   footprint  blocks covered by one screen pixel on this face
-void realLayer(int material, vec3 worldPos, vec3 faceNormal, float footprint, float rotation, float scale, vec2 offset,
+void realProjection(int material, vec3 worldPos, vec3 faceNormal, vec3 T, vec3 B, float footprint, float rotation, float scale, vec2 offset,
 		out vec3 albedo, out vec3 normal) {
-	// Texture axes on the face: T along +u, B along the image's up (-v).
-	vec3 a = abs(faceNormal);
-	vec3 T;
-	vec3 B;
-	if (a.y >= a.x && a.y >= a.z) {
-		T = vec3(1.0, 0.0, 0.0);
-		B = vec3(0.0, 0.0, -sign(faceNormal.y));
-	} else if (a.x >= a.z) {
-		T = vec3(0.0, 0.0, -sign(faceNormal.x));
-		B = vec3(0.0, 1.0, 0.0);
-	} else {
-		T = vec3(sign(faceNormal.z), 0.0, 0.0);
-		B = vec3(0.0, 1.0, 0.0);
-	}
 	float c = cos(rotation);
 	float s = sin(rotation);
 	vec3 T2 = c * T + s * B;
@@ -86,7 +73,33 @@ void realLayer(int material, vec3 worldPos, vec3 faceNormal, float footprint, fl
 	vec4 surface = realTexture(realsurface, REAL_SURFACE_ATLAS, REAL_SURFACE_CELL, 512.0, material, uv, lod - 1.0);
 	vec3 n = surface.xyz * 2.0 - 1.0;
 	n.xy *= REAL_NORMAL_STRENGTH;
-	normal = normalize(T2 * n.x + B2 * n.y + faceNormal * n.z);
+	vec3 detail = T2 * n.x + B2 * n.y;
+	detail -= faceNormal * dot(detail, faceNormal);
+	normal = normalize(detail + faceNormal * max(n.z, 0.1));
+}
+
+// Blend projections continuously; hard axis selection draws seams across sloping triangles.
+void realLayer(int material, vec3 worldPos, vec3 faceNormal, float footprint, float rotation, float scale, vec2 offset,
+		out vec3 albedo, out vec3 normal) {
+	vec3 weights = pow(abs(faceNormal), vec3(4.0));
+	weights /= max(weights.x + weights.y + weights.z, 1e-6);
+	vec3 s = mix(vec3(-1.0), vec3(1.0), greaterThanEqual(faceNormal, vec3(0.0)));
+	albedo = vec3(0.0);
+	normal = vec3(0.0);
+	vec3 color, bump;
+	if (weights.x > 0.0) {
+		realProjection(material, worldPos, faceNormal, vec3(0,0,-s.x), vec3(0,1,0), footprint, rotation, scale, offset, color, bump);
+		albedo += color * weights.x; normal += bump * weights.x;
+	}
+	if (weights.y > 0.0) {
+		realProjection(material, worldPos, faceNormal, vec3(1,0,0), vec3(0,0,-s.y), footprint, rotation, scale, offset, color, bump);
+		albedo += color * weights.y; normal += bump * weights.y;
+	}
+	if (weights.z > 0.0) {
+		realProjection(material, worldPos, faceNormal, vec3(s.z,0,0), vec3(0,1,0), footprint, rotation, scale, offset, color, bump);
+		albedo += color * weights.z; normal += bump * weights.z;
+	}
+	normal = normalize(normal);
 }
 
 // The scan at a point, with its repetition broken up: two copies at
@@ -125,28 +138,43 @@ int realMaterialOf(int id) {
 void realBlockSurface(int id, vec3 worldPos, vec3 faceNormal, float footprint, vec3 vertexTint, out vec3 albedo, out vec3 normal) {
 	int material = realMaterialOf(id);
 	realMaterial(material, worldPos, faceNormal, footprint, albedo, normal);
-	bool grassBlock = id == ID_REAL_GRASS_BLOCK || id == ID_REAL_SNOWY_GRASS_BLOCK;
-	if (!grassBlock || faceNormal.y < -0.5) return;
+}
 
-	// Grass covers the top, and hangs a ragged fringe over the upper edge of
-	// the sides; snow does the same on snowy grass.
-	int cover = id == ID_REAL_SNOWY_GRASS_BLOCK ? REAL_SNOW : REAL_GRASS;
-	float coverage = 1.0;
-	if (faceNormal.y < 0.5) {
-		float heightInBlock = worldPos.y - floor(worldPos.y - 1e-3);
-		float along = dot(worldPos.xz, abs(faceNormal.zx));
-		float fringe = 0.1 + 0.12 * texture(noisetex, vec2(along * 0.35, worldPos.y * 0.05)).g + 0.05 * texture(noisetex, vec2(along * 2.1, 0.3)).b;
-		coverage = smoothstep(1.0 - fringe - 0.02, 1.0 - fringe + 0.02, heightInBlock);
-		if (coverage <= 0.0) return;
-	}
-	vec3 coverAlbedo;
-	vec3 coverNormal;
-	realMaterial(cover, worldPos, faceNormal, footprint, coverAlbedo, coverNormal);
-	if (cover == REAL_GRASS) {
-		// Biome colour relative to plains grass, which the scan resembles.
-		bool tinted = any(lessThan(vertexTint, vec3(0.99)));
-		if (tinted) coverAlbedo *= mix(vec3(1.0), clamp(vertexTint / vec3(0.569, 0.741, 0.349), 0.4, 1.8), 0.7);
-	}
-	albedo = mix(albedo, coverAlbedo, coverage);
-	normal = normalize(mix(normal, coverNormal, coverage));
+// Interpolated material weights, never interpolated material identifiers.
+void realGroundPalette(vec3 worldPos, vec3 faceNormal, float footprint, vec4 weightsA, vec4 weightsB,
+        inout vec3 albedo, inout vec3 normal) {
+    if (dot(weightsA + weightsB, vec4(1.0)) < 0.001) return;
+    vec3 mixedColor = vec3(0.0), mixedNormal = vec3(0.0);
+    float sum = 0.0;
+    for (int material=0; material<8; material++) {
+        float weight = material < 4 ? weightsA[material] : weightsB[material-4];
+        if (weight <= 0.0) continue;
+        float noise = texture(noisetex, worldPos.xz * 1.3 + vec2(float(material)*0.137)).g;
+        weight *= mix(0.65, 1.35, noise);
+        vec3 color, bump;
+        realMaterial(material, worldPos, faceNormal, footprint, color, bump);
+        mixedColor += color * weight;
+        mixedNormal += bump * weight;
+        sum += weight;
+    }
+    albedo = mixedColor / sum;
+    normal = normalize(mixedNormal);
+}
+// Scatter leaves in continuous world space instead of restarting the pattern
+// in every block model. Rotated, differently scaled copies obscure repetition.
+vec4 realLeafLitter(vec3 worldPos) {
+	vec2 p = worldPos.xz;
+	vec2 uvA = p / 3.2;
+	vec4 a = textureGrad(leaflitter, fract(uvA), dFdx(uvA), dFdy(uvA));
+	float c = cos(0.83);
+	float s = sin(0.83);
+	vec2 rotated = mat2(c, -s, s, c) * p;
+	vec2 uvB = rotated / 4.7 + vec2(0.37, 0.61);
+	vec4 b = textureGrad(leaflitter, fract(uvB), dFdx(uvB), dFdy(uvB));
+	float blend = smoothstep(0.3, 0.7, texture(noisetex, p * 0.035).g);
+	float weightA = a.a * mix(0.48, 0.72, blend);
+	float weightB = b.a * mix(0.72, 0.48, blend);
+	float alpha = weightA + weightB * (1.0 - weightA);
+	vec3 color = (a.rgb * weightA * (1.0 - weightB) + b.rgb * weightB) / max(alpha, 1e-4);
+	return vec4(color, alpha);
 }

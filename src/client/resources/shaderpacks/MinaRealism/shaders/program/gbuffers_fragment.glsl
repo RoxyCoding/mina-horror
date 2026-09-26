@@ -37,6 +37,8 @@ in vec3 viewNormal;
 flat in int blockId;
 #ifdef GB_CHUNK
 in vec4 tileRect;
+in vec4 terrainWeightsA;
+in vec4 terrainWeightsB;
 #endif
 
 layout(location = 0) out vec4 out0;
@@ -210,6 +212,14 @@ void main() {
 	float ao = 1.0;
 #endif
 
+#ifdef GB_CHUNK
+	// Plant sprites use cutout coverage even when drawn in a translucent terrain pass.
+	if (isFoliageId(blockId)) {
+		if (albedo.a < max(alphaTestRef, 0.5)) discard;
+		albedo.a = 1.0;
+	}
+#endif
+
 #ifdef GB_WEATHER
 	out1 = vec4(0.0);
 	if (biome_precipitation != 2) {
@@ -222,6 +232,8 @@ void main() {
 
 #ifdef GB_WATER
 	if (albedo.a < 0.004) discard;
+#elif defined GB_CHUNK && defined GB_GBUFFER
+	if (blockId != ID_LEAF_LITTER && albedo.a < max(alphaTestRef, 0.5)) discard;
 #else
 	if (albedo.a < max(alphaTestRef, 0.1)) discard;
 #endif
@@ -243,6 +255,7 @@ void main() {
 #if defined GB_CHUNK && defined GB_GBUFFER
 	// Derivatives are taken here, outside the per-material branches.
 	vec3 surfacePlayerPos = viewToPlayer(viewPos);
+	vec3 groundFaceNormal = normal;
 	#ifdef REAL_TEXTURES
 	bool realSurface = realMaterialOf(blockId) >= 0;
 	#else
@@ -253,14 +266,23 @@ void main() {
 	if (!isFoliageId(blockId) && !realSurface) normal = bumpedNormal;
 	#endif
 	#ifdef REAL_TEXTURES
-	if (realSurface) {
+	if (realSurface && dot(terrainWeightsA + terrainWeightsB, vec4(1.0)) < 0.001) {
 		vec3 realAlbedo;
 		vec3 realNormal;
 		realBlockSurface(blockId, surfacePlayerPos + cameraPosition, normal, realFootprint(surfacePlayerPos, normal), vertexColor.rgb, realAlbedo, realNormal);
 		albedo.rgb = realAlbedo;
 		normal = realNormal;
 	}
+	if (realSurface) {
+		realGroundPalette(surfacePlayerPos + cameraPosition, groundFaceNormal,
+			realFootprint(surfacePlayerPos, groundFaceNormal), terrainWeightsA, terrainWeightsB, albedo.rgb, normal);
+	}
 	#endif
+	if (blockId == ID_LEAF_LITTER) {
+		vec4 leaves = realLeafLitter(surfacePlayerPos + cameraPosition);
+		if (leaves.a < max(alphaTestRef, 0.1)) discard;
+		albedo = vec4(leaves.rgb, 1.0);
+	}
 #endif
 
 #if defined GB_RAW

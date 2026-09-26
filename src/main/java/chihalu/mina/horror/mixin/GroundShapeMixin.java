@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Ground around the columns marked with the terrain wand collides and outlines along its drawn slope instead of as a
+ * Smoothed natural ground collides and outlines along its drawn slope instead of as a
  * cube ({@link SmoothGround#shapeFor}), and the open blocks the slope rises into collide with the rest of it
  * ({@link SmoothGround#fillFor}).
  */

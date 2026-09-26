@@ -75,7 +75,17 @@ tasks.register('checkShaderPackInstall', JavaExec) {
 	mainClass = 'chihalu.mina.horror.client.shader.ShaderPackInstallCheck'
 	workingDir = projectDir
 }
-tasks.named('check') { dependsOn 'checkTreeGeometry', 'checkShaderPackInstall' }
+tasks.register('checkShoreWater', JavaExec) {
+	dependsOn testClasses, clientClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'chihalu.mina.horror.client.render.terrain.ShoreWaterCheck'
+}
+tasks.register('checkGroundCeiling', JavaExec) {
+	dependsOn testClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'chihalu.mina.horror.terrain.GroundCeilingCheck'
+}
+tasks.named('check') { dependsOn 'checkTreeGeometry', 'checkShaderPackInstall', 'checkShoreWater', 'checkGroundCeiling' }
 tasks.named('test') { failOnNoDiscoveredTests = false } // The geometry check is an executable main.
 
 jar {

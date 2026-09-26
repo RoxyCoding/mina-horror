@@ -17,6 +17,8 @@ flat out int blockId;
 // The quad's rectangle in the texture atlas (min xy, max zw). Constant over
 // the quad: every corner is the same distance from the middle.
 out vec4 tileRect;
+out vec4 terrainWeightsA;
+out vec4 terrainWeightsB;
 #endif
 
 #ifdef GB_CHUNK
@@ -33,6 +35,22 @@ void main() {
 	viewNormal = gl_NormalMatrix * gl_Normal;
 #ifdef GB_CHUNK
 	blockId = int(mc_Entity.x + 0.5);
+	terrainWeightsA = vec4(0.0);
+	terrainWeightsB = vec4(0.0);
+	if (blockId >= 50 && blockId <= 58) {
+		ivec3 bytes = ivec3(round(gl_Color.rgb * 255.0));
+		int materialBits = (bytes.r << 16) | (bytes.g << 8) | bytes.b;
+		if (materialBits != 16777215) {
+			for (int i=0; i<4; i++) {
+				terrainWeightsA[i] = float((materialBits >> (i*3)) & 7);
+				terrainWeightsB[i] = float((materialBits >> ((i+4)*3)) & 7);
+			}
+			float sum = dot(terrainWeightsA + terrainWeightsB, vec4(1.0));
+			terrainWeightsA /= max(sum, 1.0);
+			terrainWeightsB /= max(sum, 1.0);
+			vertexColor.rgb = vec3(1.0);
+		}
+	}
 	vec2 halfSize = abs(texcoord - mc_midTexCoord);
 	tileRect = vec4(mc_midTexCoord - halfSize, mc_midTexCoord + halfSize);
 #else

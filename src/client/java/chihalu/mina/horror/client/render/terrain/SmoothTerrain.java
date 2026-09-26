@@ -23,13 +23,14 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws the ground around the columns marked with the terrain wand as slopes ({@link SmoothGround}), matching the collision
- * the same class gives it on both sides. Plants and snow layers standing on it follow it.
+ * Draws natural one-block steps and wand-marked taller steps as slopes ({@link SmoothGround}), matching their collision.
+ * Plants and snow layers standing on them follow the slope.
  */
 public final class SmoothTerrain {
 	private SmoothTerrain() { }
 
 	public static void register() {
+		ShoreWater.register();
 		ModelLoadingPlugin.register(plugin -> plugin.modifyBlockModelAfterBake().register((original, context) -> {
 			Block block = context.state().getBlock();
 			if (SmoothGround.isGroundBlock(block)) return new GroundModel(original);
@@ -68,6 +69,14 @@ public final class SmoothTerrain {
 			SectionPos.blockToSectionCoord(baseX + maxX + 1), level.getMaxSectionY(), SectionPos.blockToSectionCoord(baseZ + maxZ + 1));
 	}
 
+    private static int cornerPalette(BlockAndTintGetter level, BlockPos pos, int localX, int localZ, int own) {
+        float[] weights = new float[8];
+        for (int dx = localX-1; dx <= localX; dx++) for (int dz = localZ-1; dz <= localZ; dz++) {
+            int material = dx == 0 && dz == 0 ? own : SmoothGround.surfaceMaterialAt(level, pos.getX()+dx, pos.getY()+1, pos.getZ()+dz);
+            if (material >= 0) weights[material]++;
+        }
+        return TerrainMaterials.pack(weights);
+    }
 	/** Ground: the corners of its top move and take the slope's normal; its bottom and anything below stay put. */
 	private static final class GroundModel extends WrapperBlockStateModel {
 		GroundModel(BlockStateModel original) {
@@ -78,27 +87,58 @@ public final class SmoothTerrain {
 		public void emitQuads(QuadEmitter emitter, BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, Predicate<Direction> cullTest) {
 			// Only the top block of a column meets the air; the ones under it keep their shape.
 			SmoothColumns.Lookup marks = marks();
-			SmoothGround.Top top = marks != null && SmoothGround.isOpen(level.getBlockState(pos.above()))
+			SmoothGround.Top top = marks != null && SmoothGround.isSurfaceAbove(level.getBlockState(pos.above()))
 				? SmoothGround.top(level, marks, pos.getX(), pos.getY() + 1, pos.getZ()) : null;
-			if (top == null) {
+            int ownMaterial = SmoothGround.surfaceMaterial(state.getBlock());
+            if (ownMaterial == 0 && state.hasProperty(BlockStateProperties.SNOWY) && state.getValue(BlockStateProperties.SNOWY)) ownMaterial = 5;
+            int[] palettes = new int[4];
+            boolean shaderMaterials = ShoreWaterShaders.active() && ownMaterial >= 0;
+            boolean transition = shaderMaterials && SmoothGround.isSurfaceAbove(level.getBlockState(pos.above()));
+            if (transition) for (int corner=0; corner<4; corner++) palettes[corner] = cornerPalette(level,pos,corner&1,corner>>1,ownMaterial);
+            float[] base = new float[8];
+            if (ownMaterial >= 0) base[ownMaterial == 0 ? 1 : ownMaterial] = 1;
+            int baseColor = ownMaterial >= 0 ? TerrainMaterials.pack(base) : -1;
+			if (top == null && !transition && !shaderMaterials) {
 				super.emitQuads(emitter, level, pos, state, random, cullTest);
 				return;
 			}
-			emitter.pushTransform(quad -> {
-				boolean upward = quad.y(0) > 0.999f && quad.y(1) > 0.999f && quad.y(2) > 0.999f && quad.y(3) > 0.999f;
-				for (int i = 0; i < 4; i++) {
-					float y = quad.y(i);
-					if (y <= 0.999f) continue;
-					quad.pos(i, quad.x(i), y + top.offsetAt(quad.x(i), quad.z(i)), quad.z(i));
-					float[] normal = top.normalNear(quad.x(i), quad.z(i));
-					if (upward && normal != null) quad.normal(i, normal[0], normal[1], normal[2]);
-				}
-				return true;
+			QuadEmitter lit = net.fabricmc.fabric.api.client.renderer.v1.Renderer.get().quadEmitter(quad -> {
+				for (int i=0;i<4;i++) quad.lightmap(i, TerrainLight.at(level,
+					pos.getX()+quad.x(i), pos.getY()+quad.y(i)+.5, pos.getZ()+quad.z(i)));
+				emitter.copyFrom(quad);
+				emitter.pos(0,quad.x(0),quad.y(0),quad.z(0));
+				emitter.emit();
 			});
+			QuadEmitter shaped = net.fabricmc.fabric.api.client.renderer.v1.Renderer.get().quadEmitter(quad -> {
+				if (top != null) {
+					// Cube AO and inset-face light samples refer to solid space that this slope no longer occupies.
+					quad.ambientOcclusion(net.fabricmc.fabric.api.util.TriState.FALSE);
+				}
+				if (top != null && quad.nominalFace() != Direction.DOWN) TerrainSurface.emit(quad, lit, top);
+				else {
+					lit.copyFrom(quad);
+					lit.pos(0, quad.x(0), quad.y(0), quad.z(0));
+					lit.emit();
+				}
+			});
+            shaped.pushTransform(quad -> {
+                if (shaderMaterials) {
+                    quad.tintIndex(-1);
+                    quad.ambientOcclusion(net.fabricmc.fabric.api.util.TriState.FALSE);
+                    quad.shadeDirectionOverride(Direction.UP);
+                    quad.tag(0x4D4154);
+                    for (int i=0; i<4; i++) {
+                        int corner = (quad.x(i)>.5f ? 1:0)+(quad.z(i)>.5f ? 2:0);
+                        quad.color(i, transition && quad.y(i)>.999f ? palettes[corner] : baseColor);
+                    }
+                }
+                return true;
+            });
 			try {
-				super.emitQuads(emitter, level, pos, state, random, cullTest);
+				// Moving top corners can expose a side that vanilla would cull against a full neighbour.
+				super.emitQuads(shaped, level, pos, state, random, top == null ? cullTest : direction -> false);
 			} finally {
-				emitter.popTransform();
+				shaped.popTransform();
 			}
 		}
 

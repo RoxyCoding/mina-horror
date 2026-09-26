@@ -18,7 +18,7 @@ layout(location = 1) out vec4 outDepths; // r: water surface, g: nearest caster;
 void main() {
 	// Vertex alpha holds ambient occlusion for terrain (separateAo), so only the texture decides coverage.
 	vec4 tex = texture(gtexture, texcoord);
-	if (tex.a < max(alphaTestRef, 0.1)) discard;
+	if (tex.a < max(alphaTestRef, isFoliageId(blockId) ? 0.5 : 0.1)) discard;
 	if (blockId == ID_WATER) {
 		// Water does not tint like glass; its depth is recorded and absorption computed from it.
 		// The casters below are hidden from the shadow softening; they then

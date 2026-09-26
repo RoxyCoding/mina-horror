@@ -94,7 +94,7 @@ public final class SmoothColumns {
 			return marks != null && marks.has(x & 15, z & 15);
 		}
 
-		/** Whether any column in the 3x3 around (x, z) is marked: only there can the ground move. */
+		/** Whether any column in the 3x3 around (x, z) is marked for smoothing taller steps. */
 		public boolean anyAround(int x, int z) {
 			for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) if (has(x + dx, z + dz)) return true;
 			return false;

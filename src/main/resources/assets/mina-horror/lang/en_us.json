@@ -3,6 +3,6 @@
   "item.mina-horror.black_cat_spawn_egg": "Black Cat Spawn Egg",
   "item.mina-horror.terrain_wand": "Terrain Wand",
   "item.mina-horror.terrain_wand.smoothed": "Smoothed (brush %s×%s)",
-  "item.mina-horror.terrain_wand.restored": "Put back to square (brush %s×%s)",
+  "item.mina-horror.terrain_wand.restored": "Manual smoothing cleared (brush %s×%s)",
   "item.mina-horror.terrain_wand.brush": "Brush size: %s×%s"
 }

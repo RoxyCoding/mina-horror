@@ -20,6 +20,7 @@ const int ID_REAL_SNOW = 55;
 const int ID_REAL_DEEPSLATE = 56;
 const int ID_REAL_MUD = 57;
 const int ID_REAL_SNOWY_GRASS_BLOCK = 58;
+const int ID_LEAF_LITTER = 59;
 
 // Surface models, stored in colortex3.g for the deferred and composite passes.
 // G-buffer layout (alpha is always coverage, so translucent fragments blend
@@ -227,10 +228,11 @@ float eyeWaterDepth() {
 // (wetness rises slowly) and cover about a fifth of the ground at most.
 float puddleAmount(vec3 worldPos, vec3 normal, float skyLight) {
 	// Bumpy tops tilt a little (see TEXTURE_BUMPS); walls and undersides never hold water.
-	if (wetness <= 0.001 || normal.y < 0.8) return 0.0;
+	if (wetness <= 0.001) return 0.0;
 	float n = texture(noisetex, worldPos.xz * 0.012).g * 0.6 + texture(noisetex, worldPos.xz * 0.05 + 0.3).g * 0.4;
 	float threshold = mix(0.75, 0.6, wetness);
-	return smoothstep(threshold, threshold + 0.05, n) * smoothstep(0.85, 0.97, skyLight) * wetness;
+	return smoothstep(threshold, threshold + 0.12, n) * smoothstep(0.55, 1.0, skyLight)
+		* smoothstep(0.65, 0.98, normal.y) * wetness;
 }
 
 // Rain soaks surfaces that face the open sky.
@@ -238,8 +240,8 @@ float puddleAmount(vec3 worldPos, vec3 normal, float skyLight) {
 // a film of water on top.
 float surfaceWetness(vec3 normal, float skyLight, int material, vec3 worldPos) {
 	if (material == MAT_FLAT || material == MAT_EMISSIVE) return 0.0;
-	float exposure = normal.y < -0.3 ? 0.0 : mix(0.4, 1.0, clamp(normal.y * 1.5, 0.0, 1.0));
-	float wet = wetness * smoothstep(0.85, 0.97, skyLight) * exposure;
+	float exposure = smoothstep(-0.3, 0.65, normal.y);
+	float wet = wetness * smoothstep(0.55, 1.0, skyLight) * exposure;
 	if (material == MAT_DEFAULT) wet = max(wet, puddleAmount(worldPos, normal, skyLight));
 	return wet;
 }

@@ -53,5 +53,5 @@ option.CIRRUS_AMOUNT=巻雲の量
 option.SUN_MOON_SIZE=太陽と月の大きさ
 option.SUN_MOON_SIZE.comment=1.0が実際の大きさ（約0.5度）です。
 option.REAL_TEXTURES=写真の地面
-option.REAL_TEXTURES.comment=草・土・石・砂・砂利・雪・深層岩・泥を実物のスキャンで描きます。ブロックの境目で模様が繰り返しません。
+option.REAL_TEXTURES.comment=草・土・石・砂・砂利・雪・深層岩・泥を写真素材で描きます。落ち葉はブロックをまたいで散らばり、地面の継ぎ目は自然な土色でなじみます。
 option.REAL_NORMAL_STRENGTH=地面の凹凸の強さ

@@ -3,6 +3,6 @@
   "item.mina-horror.black_cat_spawn_egg": "黒猫のスポーンエッグ",
   "item.mina-horror.terrain_wand": "地ならしの杖",
   "item.mina-horror.terrain_wand.smoothed": "なめらかにしました（ブラシ %s×%s）",
-  "item.mina-horror.terrain_wand.restored": "元の四角い形に戻しました（ブラシ %s×%s）",
+  "item.mina-horror.terrain_wand.restored": "手動の地ならしを解除しました（ブラシ %s×%s）",
   "item.mina-horror.terrain_wand.brush": "ブラシの大きさ：%s×%s"
 }
