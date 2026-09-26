@@ -1,6 +1,7 @@
 package chihalu.mina.horror.registry;
 
 import chihalu.mina.horror.MinaHorror;
+import chihalu.mina.horror.item.BroomItem;
 import chihalu.mina.horror.item.FlashlightItem;
 import chihalu.mina.horror.item.TerrainWandItem;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
@@ -38,6 +39,14 @@ public final class MinaHorrorItems {
 		new FlashlightItem(new Item.Properties().stacksTo(1).setId(FLASHLIGHT_KEY))
 	);
 
+	public static final ResourceKey<Item> BROOM_KEY = ResourceKey.create(Registries.ITEM, MinaHorror.id("broom"));
+
+	public static final Item BROOM = Registry.register(
+		BuiltInRegistries.ITEM,
+		BROOM_KEY,
+		new BroomItem(new Item.Properties().stacksTo(1).setId(BROOM_KEY))
+	);
+
 	private MinaHorrorItems() {
 	}
 
@@ -50,6 +59,7 @@ public final class MinaHorrorItems {
 			.register(output -> {
 				output.accept(TERRAIN_WAND);
 				output.accept(FLASHLIGHT);
+				output.accept(BROOM);
 			});
 	}
 }

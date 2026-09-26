@@ -1,6 +1,8 @@
 {
   "entity.mina-horror.black_cat": "使い魔",
+  "entity.mina-horror.broom": "空飛ぶほうき",
   "item.mina-horror.black_cat_spawn_egg": "使い魔のスポーンエッグ",
+  "item.mina-horror.broom": "空飛ぶほうき",
   "item.mina-horror.flashlight": "懐中電灯",
   "item.mina-horror.terrain_wand": "地ならしの杖",
   "item.mina-horror.terrain_wand.smoothed": "なめらかにしました（ブラシ %s×%s）",

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "  G",
+    " S ",
+    "W  "
+  ],
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "S": "minecraft:stick",
+    "W": "minecraft:white_wool"
+  },
+  "result": {
+    "count": 1,
+    "id": "mina-horror:broom"
+  }
+}

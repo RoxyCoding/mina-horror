@@ -6,6 +6,7 @@
   "entrypoints": {
     "fabric-gametest": ["chihalu.mina.horror.terrain.SlopeMovementGameTest"],
     "fabric-client-gametest": [
+      "chihalu.mina.horror.client.render.BroomClientGameTest",
       "chihalu.mina.horror.client.render.FlashlightClientGameTest",
       "chihalu.mina.horror.terrain.SlopeClientGameTest"
     ]

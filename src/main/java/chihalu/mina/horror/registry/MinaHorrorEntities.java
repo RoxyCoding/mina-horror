@@ -2,6 +2,7 @@ package chihalu.mina.horror.registry;
 
 import chihalu.mina.horror.MinaHorror;
 import chihalu.mina.horror.entity.BlackCat;
+import chihalu.mina.horror.entity.Broom;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -22,6 +23,18 @@ public final class MinaHorrorEntities {
 			.eyeHeight(0.52F)
 			.clientTrackingRange(8)
 			.build(BLACK_CAT_KEY)
+	);
+
+	public static final ResourceKey<EntityType<?>> BROOM_KEY = ResourceKey.create(Registries.ENTITY_TYPE, MinaHorror.id("broom"));
+
+	// The 2-block broom is drawn well past its box; the box covers the seat and stays under a block wide for tunnels.
+	public static final EntityType<Broom> BROOM = Registry.register(
+		BuiltInRegistries.ENTITY_TYPE,
+		BROOM_KEY,
+		EntityType.Builder.<Broom>of(Broom::new, MobCategory.MISC)
+			.sized(0.9F, 0.6F)
+			.clientTrackingRange(10)
+			.build(BROOM_KEY)
 	);
 
 	private MinaHorrorEntities() {
