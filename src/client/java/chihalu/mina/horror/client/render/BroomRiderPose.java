@@ -7,8 +7,11 @@ import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * legs astride the handle (swung over while mounting, tucked up at take-off, let down for landing, stepped down to
  * the ground after dismounting), both hands on the handle (or one when near death), the head keeping its gaze
  * through the lean (and glancing back at a familiar), and everything going slack when the rider dies.
+ * In first person the view moves the same way ({@link #firstPersonView}).
  */
 public final class BroomRiderPose {
 	/** The handle's axis at the seat, above the rider's feet, and the hips, about which the body leans. */
@@ -24,6 +28,10 @@ public final class BroomRiderPose {
 	private static final float HIPS = 0.75F;
 	private static final float ASTRIDE = -1.4137167F;
 	private static final float DISMOUNT_TICKS = 12.0F;
+	private static final float EYES = 1.62F;
+	/** How much of the body's bank and the broom's pitch the eyes follow; the neck keeps the head a little level. */
+	private static final float VIEW_ROLL = 0.6F;
+	private static final float VIEW_PITCH = 0.5F;
 
 	private BroomRiderPose() {
 	}
@@ -44,7 +52,11 @@ public final class BroomRiderPose {
 			return;
 		}
 
-		float partialTick = partialTick(state);
+		carry(poseStack, broom, partialTick(state));
+	}
+
+	/** The rider's body in its frame (forward -z, right +x, feet at the origin): carried by the broom, then leaning. */
+	private static void carry(final PoseStack poseStack, final Broom broom, final float partialTick) {
 		BroomMotion motion = broom.motion;
 		BroomRenderer.followBroom(poseStack, broom, SEAT, 0.0F, partialTick);
 		poseStack.translate(motion.get(BroomMotion.SHIFT, partialTick), motion.get(BroomMotion.RIDER_LIFT, partialTick), 0.0F);
@@ -52,6 +64,34 @@ public final class BroomRiderPose {
 		poseStack.rotateDegrees(Axis.XP, -motion.get(BroomMotion.LEAN, partialTick));
 		poseStack.rotateDegrees(Axis.ZP, -motion.get(BroomMotion.RIDER_ROLL, partialTick));
 		poseStack.translate(0.0F, -HIPS, 0.0F);
+	}
+
+	/**
+	 * The first-person view of a broom's rider, applied to the view's bob stack (which moves the world and the hands
+	 * together): the eyes go where the carried, leaning body takes the head, and the view banks with the broom and
+	 * the rider's weight, pitches with the broom and hums with it.
+	 */
+	public static void firstPersonView(final CameraRenderState camera, final PoseStack bob) {
+		Minecraft minecraft = Minecraft.getInstance();
+		Entity player = minecraft.getCameraEntity();
+		if (!camera.isFirstPerson || player == null || !(player.getVehicle() instanceof Broom broom)
+			|| player instanceof LivingEntity living && living.isDeadOrDying()) {
+			return;
+		}
+
+		float partialTick = camera.cameraEntityPartialTicks;
+		float age = broom.tickCount + partialTick;
+		BroomMotion motion = broom.motion;
+		PoseStack body = new PoseStack();
+		carry(body, broom, partialTick);
+		Vector3f eyes = body.last().pose().transformPosition(new Vector3f(0.0F, EYES, 0.0F)).sub(0.0F, EYES, 0.0F);
+		// body frame -> world (the body faces the broom's heading) -> view
+		eyes.rotateY((180.0F - broom.getYRot(partialTick)) * Mth.DEG_TO_RAD);
+		camera.orientation.transformInverse(eyes);
+		float roll = BroomRenderer.roll(motion, age, partialTick) + motion.get(BroomMotion.RIDER_ROLL, partialTick);
+		bob.rotateDegrees(Axis.ZP, roll * VIEW_ROLL);
+		bob.rotateDegrees(Axis.XP, BroomRenderer.pitch(motion, age, partialTick) * VIEW_PITCH);
+		bob.translate(-eyes.x, -eyes.y, -eyes.z);
 	}
 
 	/** After the model's own animation: the limbs of a rider, or of someone just stepping off a broom. */

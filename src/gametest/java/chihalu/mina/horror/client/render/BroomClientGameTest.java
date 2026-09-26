@@ -82,6 +82,20 @@ public class BroomClientGameTest implements FabricClientGameTest {
 			context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
 			context.waitTicks(5);
 			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_riding_front"));
+			// in first person the view banks, pitches, crouches and hums with the flight: low and level, then turning
+			context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+			context.getInput().holdKey(options -> options.keyUp);
+			context.getInput().holdKey(options -> options.keySprint);
+			context.waitTicks(20);
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_first_person_boost"));
+			for (int tick = 0; tick < 8; tick++) {
+				context.runOnClient(client -> client.player.setYRot(client.player.getYRot() + 7.0F));
+				context.waitTick();
+			}
+			System.out.println("Broom screenshot: " + context.takeScreenshot("broom_first_person_turn"));
+			context.getInput().releaseKey(options -> options.keySprint);
+			context.getInput().releaseKey(options -> options.keyUp);
+			context.waitTicks(30);
 			context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
 
 			double startY = context.computeOnClient(client -> client.player.getVehicle().getY());

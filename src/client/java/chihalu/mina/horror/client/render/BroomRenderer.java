@@ -52,11 +52,11 @@ public class BroomRenderer extends EntityRenderer<Broom, BroomRenderState> {
 		state.damageTime = Math.max(entity.getDamage() - partialTicks, 0.0F);
 	}
 
-	private static float pitch(final BroomMotion motion, final float age, final float partialTick) {
+	static float pitch(final BroomMotion motion, final float age, final float partialTick) {
 		return motion.get(BroomMotion.PITCH, partialTick) + motion.buzz(age, partialTick, 0.0F);
 	}
 
-	private static float roll(final BroomMotion motion, final float age, final float partialTick) {
+	static float roll(final BroomMotion motion, final float age, final float partialTick) {
 		return motion.get(BroomMotion.ROLL, partialTick) + motion.buzz(age, partialTick, 1.7F) * 0.6F;
 	}
 

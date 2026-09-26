@@ -11,7 +11,8 @@
 		"SodiumTerrainLightMixin",
 		"IrisFlashlightUniformsMixin",
 		"BroomRiderRotationsMixin",
-		"BroomRiderModelMixin"
+		"BroomRiderModelMixin",
+		"BroomRiderViewMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
