@@ -40,6 +40,10 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Client game tests run with the Iris and Sodium jars from run/mods (when present), so the
+	// MinaRealism shader pack can be checked in their screenshots.
+	gametestRuntimeOnly fileTree('run/mods') { include 'iris-fabric-*.jar', 'sodium-fabric-*.jar' }
 }
 
 processResources {

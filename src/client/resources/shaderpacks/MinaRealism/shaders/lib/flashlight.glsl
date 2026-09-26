@@ -7,10 +7,9 @@
 
 uniform int heldItemId;
 uniform int heldItemId2;
-uniform vec3 eyePosition;
-uniform vec3 playerLookVector;
 // From the mod (FlashlightBeam): where each hand's lens was last drawn and where it points,
-// in view space; w is 0 when unknown (no mod, hand hidden), then the lamp is guessed below.
+// in view space; w is 0 when unknown (no mod, hand hidden, the first frame after switching on),
+// then the lamp is guessed below.
 uniform vec4 minaFlashlightPos0;
 uniform vec4 minaFlashlightPos1;
 uniform vec4 minaFlashlightDir0;
@@ -38,16 +37,24 @@ bool anyFlashlight() {
 	return flashlightInHand(0) || flashlightInHand(1);
 }
 
+// Whether the mod's lens position and direction for this hand can be used. Iris reads the two
+// uniforms at different moments of a frame, so right after the lens is first drawn one can be
+// fresh and the other not; mixing them lit every surface for that frame. Both must be fresh and sane.
+bool flashlightCaptured(int hand) {
+	vec4 lens = hand == 0 ? minaFlashlightPos0 : minaFlashlightPos1;
+	vec4 pointing = hand == 0 ? minaFlashlightDir0 : minaFlashlightDir1;
+	float reach = dot(lens.xyz, lens.xyz);
+	float unit = dot(pointing.xyz, pointing.xyz);
+	return lens.w > 0.5 && pointing.w > 0.5 && reach < 16.0 && abs(unit - 1.0) < 0.01;
+}
+
 // Lens position, relative to the camera, of the flashlight in the given hand.
 vec3 flashlightOrigin(int hand) {
-	vec4 lens = hand == 0 ? minaFlashlightPos0 : minaFlashlightPos1;
-	if (lens.w > 0.5) return viewToPlayer(lens.xyz);
-	// Guess: held in front of the chest on that hand's side.
-	vec3 look = normalize(playerLookVector);
-	vec3 right = normalize(cross(look, vec3(0.0, 1.0, 0.0)) + vec3(1e-4, 0.0, 0.0));
-	vec3 up = cross(right, look);
-	float side = hand == 0 ? 1.0 : -1.0;
-	return eyePosition - cameraPosition + right * (0.3 * side) - up * 0.25 + look * 0.4;
+	if (flashlightCaptured(hand)) return viewToPlayer((hand == 0 ? minaFlashlightPos0 : minaFlashlightPos1).xyz);
+	// Guess: where a first-person hand holds it, low on that hand's side of the view. Built from
+	// the view matrix only; Iris' eyePosition and playerLookVector did not arrive as vec3 here and
+	// lit every surface for the frame before the lens was first drawn.
+	return viewToPlayer(vec3(hand == 0 ? 0.3 : -0.3, -0.25, -0.4));
 }
 
 // Light reaching pos (relative to the camera) from the flashlight in one hand, on a surface
@@ -55,9 +62,10 @@ vec3 flashlightOrigin(int hand) {
 // bright hotspot, fading out over its outer edge.
 vec3 flashlightLight(vec3 pos, int hand, out vec3 toLight) {
 	vec3 origin = flashlightOrigin(hand);
-	vec4 pointing = hand == 0 ? minaFlashlightDir0 : minaFlashlightDir1;
-	vec3 aim = eyePosition - cameraPosition + normalize(playerLookVector) * FLASHLIGHT_AIM;
-	vec3 axis = pointing.w > 0.5 ? normalize(mat3(gbufferModelViewInverse) * pointing.xyz) : normalize(aim - origin);
+	vec3 aim = viewToPlayer(vec3(0.0, 0.0, -FLASHLIGHT_AIM));
+	vec3 axis = flashlightCaptured(hand)
+		? normalize(mat3(gbufferModelViewInverse) * (hand == 0 ? minaFlashlightDir0 : minaFlashlightDir1).xyz)
+		: normalize(aim - origin);
 	vec3 offset = pos - origin;
 	float dist2 = max(dot(offset, offset), 1e-6);
 	vec3 dir = offset * inversesqrt(dist2);
