@@ -246,6 +246,10 @@ void main() {
 	float normalLength = length(normal);
 	normal = normalLength > 1e-3 ? normal / normalLength : vec3(0.0, 1.0, 0.0);
 	vec2 light = normalizeLightmap(lmcoord);
+	// Lit parts of a switched-on flashlight (vertex alpha 254, FlashlightMesh.GLOW_MARKER) glow
+	// rather than take the full-bright lightmap they are drawn with.
+	bool flashlightGlow = abs(vertexColor.a - 254.0 / 255.0) < 0.001;
+	if (flashlightGlow) light.x = 0.0;
 #ifdef GB_WATER
 	// Derivatives must be taken outside the per-block branches below.
 	vec3 surfaceWorldPos = viewToPlayer(viewPos) + cameraPosition;
@@ -298,6 +302,7 @@ void main() {
 	#endif
 	if (isFoliageId(blockId)) material = MAT_FOLIAGE;
 	else if (blockId == ID_EMISSIVE) material = MAT_EMISSIVE;
+	if (flashlightGlow) material = MAT_EMISSIVE;
 	#ifdef GB_PRELIT
 	// Translucent entities (player skins) may be drawn after deferred, so they are lit
 	// here and flagged in the material for deferred1 to keep as is.
@@ -328,6 +333,7 @@ void main() {
 	#ifdef GB_FLAT
 	material = MAT_FLAT;
 	#endif
+	if (flashlightGlow) material = MAT_EMISSIVE;
 	#ifdef GB_SHADOWS
 	bool useShadowMap = true;
 	#else

@@ -22,6 +22,7 @@ uniform sampler2D colortex6;
 uniform sampler2D colortex5;
 uniform sampler2D colortex7;
 uniform sampler2D depthtex0;
+uniform sampler2D depthtex2;
 
 in vec2 texcoord;
 
@@ -85,6 +86,23 @@ float contactShadow(vec3 viewPos, vec3 normal, float dither) {
 #endif
 }
 
+// Shadow of the flashlight beam: a ray from the surface towards the lamp. The lamp is next to the
+// camera, so the depth buffer holds nearly every occluder. The ray stops short of the lamp and
+// ignores the hand, or the flashlight model itself would shade everything.
+float flashlightShadow(vec3 viewPos, vec3 playerPos, vec3 normal, float dither) {
+#ifdef PSEUDO_RT
+	if (!anyFlashlight()) return 1.0;
+	vec3 toLamp = flashlightOrigin(flashlightInHand(0) ? 0 : 1) - playerPos;
+	float dist = length(toLamp);
+	if (dist < 1.5 || dist > 48.0) return 1.0;
+	vec3 origin = viewPos + mat3(gbufferModelView) * normal * (0.02 + dist * 0.002);
+	vec4 hit = traceScreen(depthtex2, origin, mat3(gbufferModelView) * (toLamp / dist), dist - 1.0, 16, dither, 0.5);
+	return hit.w > 0.5 ? 0.0 : 1.0;
+#else
+	return 1.0;
+#endif
+}
+
 void main() {
 	float depth = texture(depthtex0, texcoord).r;
 	vec4 base = texture(colortex0, texcoord);
@@ -114,6 +132,7 @@ void main() {
 		ao = sqrt(ao); // Traced occlusion already darkens corners.
 		if (material == MAT_DEFAULT || material == MAT_ENTITY) contact = contactShadow(viewPos, normal, dither);
 #endif
+		flashlightVisibility = flashlightShadow(viewPos, playerPos, normal, dither);
 		// base holds additive overlays drawn on top: spider eyes, enchantment glint.
 		color = shadeSurface(albedo, playerPos, normal, vec2(data.z, surface.b), ao, material, true, dither, indirect, contact) + base.rgb;
 	}

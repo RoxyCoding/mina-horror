@@ -21,6 +21,8 @@ public final class FlashlightMesh {
 	public static final int SOLID = 0;
 	public static final int GLOW = 1;
 	public static final int GLASS = 2;
+	/** Vertex colour of lit parts: alpha 254 tells the MinaRealism shader pack to draw them as emissive. */
+	public static final int GLOW_MARKER = 0xFEFFFFFF;
 	private static FlashlightMesh instance;
 
 	private final float[][] groups = new float[3][];
@@ -57,13 +59,14 @@ public final class FlashlightMesh {
 		return instance;
 	}
 
-	/** Emits one group; lit picks the switched-on texture coordinates. */
+	/** Emits one group; lit picks the switched-on texture coordinates and marks the vertices as glowing. */
 	public void render(final PoseStack.Pose pose, final VertexConsumer buffer, final int group, final boolean lit, final int light, final int overlay) {
 		float[] data = this.groups[group];
 		int uv = lit ? 8 : 6;
+		int color = lit && group != SOLID ? GLOW_MARKER : -1;
 		for (int i = 0; i < data.length; i += FLOATS) {
 			buffer.addVertex(pose, data[i], data[i + 1], data[i + 2])
-				.setColor(-1)
+				.setColor(color)
 				.setUv(data[i + uv], data[i + uv + 1])
 				.setOverlay(overlay)
 				.setLight(light)

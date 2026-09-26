@@ -19,6 +19,7 @@ option.SHADOW_SOFTNESS=影のやわらかさ
 option.SUN_BRIGHTNESS=日光の強さ
 option.AMBIENT_BRIGHTNESS=空からの光
 option.TORCH_BRIGHTNESS=松明の明るさ
+option.FLASHLIGHT_BRIGHTNESS=懐中電灯の明るさ
 option.EMISSIVE_BRIGHTNESS=発光ブロック
 option.NIGHT_BRIGHTNESS=夜の明るさ
 option.sunPathRotation=太陽の軌道の傾き

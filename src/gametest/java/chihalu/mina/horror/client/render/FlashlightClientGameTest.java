@@ -7,16 +7,22 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.InteractionHand;
 
-/** Holds the flashlight, switches it on, and screenshots it in first person, third person and the inventory. */
+/**
+ * Holds the flashlight, switches it on, and screenshots it in first person, third person and the inventory.
+ * At midnight facing a wall, so with the MinaRealism shader pack the screenshots also show the beam.
+ */
 public class FlashlightClientGameTest implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		var world = context.worldBuilder().create();
 		try {
-			world.getServer().runCommand("time set 13000");
+			world.getServer().runCommand("time set 18000");
 			world.getServer().runCommand("item replace entity @a weapon.mainhand with mina-horror:flashlight");
 			world.getServer().runCommand("item replace entity @a weapon.offhand with mina-horror:flashlight");
-			world.getServer().runCommand("fill -6 99 -6 6 99 6 minecraft:stone");
+			world.getServer().runCommand("fill -6 99 -6 6 99 8 minecraft:stone");
+			// a wall to shine on and a pillar to cast a shadow
+			world.getServer().runCommand("fill -6 100 8 6 104 8 minecraft:stone_bricks");
+			world.getServer().runCommand("fill 1 100 4 1 102 4 minecraft:oak_log");
 			world.getServer().runCommand("tp @a 0 100 0 0 10");
 			context.waitTicks(40);
 			System.out.println("Flashlight screenshot: " + context.takeScreenshot("flashlight_first_person"));

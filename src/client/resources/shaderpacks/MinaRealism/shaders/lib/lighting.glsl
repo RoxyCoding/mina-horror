@@ -1,6 +1,8 @@
 // Surface shading shared by the deferred pass and forward-lit programs.
 // Needs common, shadow (with SHADOW_SAMPLING), atmosphere and clouds.
 
+#include "/lib/flashlight.glsl"
+
 const vec3 TORCH_COLOR = vec3(1.0, 0.42, 0.12); // A wood flame, about 2200 K after the eye's white balance.
 const float TORCH_INTENSITY = 5.0;
 
@@ -116,9 +118,22 @@ vec3 shadeSurface(vec3 albedo, vec3 playerPos, vec3 normal, vec2 light, float ao
 	if (waterDepth > 0.0) ambient *= exp(-WATER_DOWNWELLING * waterDepth);
 	vec3 bounce = indirect.rgb * ao;
 	vec3 blockLight = blockLightIrradiance(light.x, playerPos + cameraPosition) * mix(occlusion, 1.0, 0.3);
+
+	vec3 flashlight = vec3(0.0);
+	for (int hand = 0; hand < 2; hand++) {
+		if (!flashlightInHand(hand)) continue;
+		vec3 toLamp;
+		vec3 beam = flashlightLight(playerPos, hand, toLamp) * flashlightVisibility;
+		float NdotL = dot(normal, toLamp);
+		float diffuse = max(NdotL, 0.0);
+		if (material == MAT_FOLIAGE) diffuse = 0.25 + 0.5 * abs(NdotL);
+		else if (material == MAT_FLAT) diffuse = 0.5;
+		flashlight += beam * diffuse;
+		if (material != MAT_FLAT && NdotL > 0.0) specular += beam * sunSpecular(normal, viewDir, toLamp, surfaceRoughness(material, wet));
+	}
 	vec3 minimum = vec3(0.003 * NIGHT_BRIGHTNESS) * occlusion + vec3(nightVision * 0.6);
 
-	vec3 color = albedo / PI * (direct + ambient + bounce + blockLight + minimum) + specular;
+	vec3 color = albedo / PI * (direct + ambient + bounce + blockLight + flashlight + minimum) + specular;
 	if (material == MAT_EMISSIVE) color += emissiveRadiance(albedo);
 	return color;
 }

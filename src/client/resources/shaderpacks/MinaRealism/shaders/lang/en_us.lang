@@ -19,6 +19,7 @@ option.SHADOW_SOFTNESS=Shadow Softness
 option.SUN_BRIGHTNESS=Sunlight
 option.AMBIENT_BRIGHTNESS=Skylight
 option.TORCH_BRIGHTNESS=Torchlight
+option.FLASHLIGHT_BRIGHTNESS=Flashlight
 option.EMISSIVE_BRIGHTNESS=Glowing Blocks
 option.NIGHT_BRIGHTNESS=Night Brightness
 option.sunPathRotation=Sun Path Tilt

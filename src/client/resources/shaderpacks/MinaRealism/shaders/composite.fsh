@@ -6,6 +6,7 @@
 #include "/lib/atmosphere.glsl"
 #include "/lib/clouds.glsl"
 #include "/lib/raytrace.glsl"
+#include "/lib/flashlight.glsl"
 
 // Noisy on purpose; composite1 blurs both:
 //   colortex4  volumetric light, sunlight scattered by mist and occluded by the shadow map
@@ -88,6 +89,33 @@ void volumetricLight() {
 #endif
 }
 
+// The flashlight beam scattered back by haze in the air: faint in clear air, a visible shaft in
+// fog, rain and under water. Samples crowd near the lamp, where the beam is brightest.
+vec3 flashlightScatter() {
+	if (!anyFlashlight()) return vec3(0.0);
+	float depth = texture(depthtex0, texcoord).r;
+	vec3 playerPos = viewToPlayer(screenToView(texcoord, depth));
+	float rayLength = min(length(playerPos), 40.0);
+	vec3 dir = normalize(playerPos);
+	float haze = isEyeInWater == 1 ? 0.03 : 0.0015 * FOG_DENSITY * (1.0 + 4.0 * rainStrength);
+	float dither = interleavedGradientNoise(gl_FragCoord.xy);
+	const int steps = 16;
+	vec3 scattered = vec3(0.0);
+	for (int i = 0; i < steps; i++) {
+		float s = (float(i) + dither) / float(steps);
+		vec3 samplePos = dir * (rayLength * s * s);
+		float stepLength = rayLength * 2.0 * s / float(steps);
+		for (int hand = 0; hand < 2; hand++) {
+			if (!flashlightInHand(hand)) continue;
+			vec3 toLamp;
+			vec3 beam = flashlightLight(samplePos, hand, toLamp);
+			float phase = mix(1.0 / (4.0 * PI), henyeyGreenstein(dot(dir, toLamp), 0.6), 0.5);
+			scattered += beam * phase * stepLength;
+		}
+	}
+	return scattered * haze * VL_STRENGTH;
+}
+
 void screenSpaceReflection() {
 	outReflection = vec4(0.0);
 #ifdef PSEUDO_RT
@@ -117,6 +145,7 @@ void screenSpaceReflection() {
 
 void main() {
 	volumetricLight();
+	outScatter.rgb += flashlightScatter();
 	screenSpaceReflection();
 	outScatter.rgb = sanitizeColor(outScatter.rgb);
 	outReflection = vec4(sanitizeColor(outReflection.rgb), clamp(outReflection.a, 0.0, 1.0));
